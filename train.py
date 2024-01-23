@@ -8,6 +8,7 @@ from model import CNN, Resnet
 from dataset import MCORDS1Dataset
 import matplotlib.pyplot as plt
 import argparse
+import time
 manual_seed(11)
 
 def get_args_parser():
@@ -18,8 +19,9 @@ def get_args_parser():
     parser.add_argument('--overlap', default=(0,0), type=int)
     # Train
     parser.add_argument('--batch_size', default = 64, type=int)
-    parser.add_argument('--epochs', default = 20, type = int)
-    parser.add_argument('--tau', default = 0.01, type = int)
+    parser.add_argument('--epochs', default = 200, type = int)
+    parser.add_argument('--lr', default = 1E-4, type = int)
+    parser.add_argument('--tau', default = 0.07, type = int)
     return parser
 
 def main(args):
@@ -35,7 +37,7 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
     # Hyperparameters
-    optimizer = Adam(model.parameters(), lr=0.001)
+    optimizer = Adam(model.parameters(), lr=args.lr)
     epochs = args.epochs
     tau = args.tau
 
@@ -43,6 +45,7 @@ def main(args):
     model.train(True)
     loss_tot = []
     for epoch in range(epochs):
+        t0 = time.time()
         loss_epoch = []
         for batch, seq in enumerate(dataloader):
             seq = seq.to('cuda')
@@ -59,7 +62,7 @@ def main(args):
             loss = 0
 
             # For each of the k palindrome paths
-            for k in range(1):
+            for k in range(T-1):
                 At = zeros(1,N,N, device = 'cuda')
                 At[0,:,:] = eye(N)
                 At = At.repeat([B,1,1]) # now At is B identity matrices stacked
@@ -78,7 +81,7 @@ def main(args):
         loss_epoch = tensor(loss_epoch).mean()
         loss_tot.append(loss_epoch)
 
-        print('Epoch:',epoch,'Loss:',loss_epoch.item())
+        print('Epoch:',epoch,'Loss:',loss_epoch.item(), 'Time:', time.time()-t0)
 
     plt.plot(loss_tot)
     plt.savefig('./crw/loss.png')

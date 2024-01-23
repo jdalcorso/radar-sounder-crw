@@ -1,4 +1,6 @@
 from torch.nn.functional import normalize
+from torch.cuda import device_count
+from torch.nn import DataParallel
 from torch import permute, zeros, load, argmax, manual_seed
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
@@ -17,7 +19,7 @@ def get_args_parser():
     parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(0,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=10, type=int)
+    parser.add_argument('-c','--cxt_size', default=10, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
     parser.add_argument('-r','--radius', default=4, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=int)
     parser.add_argument('-k','--knn', default=10, type=int)
@@ -31,6 +33,9 @@ def main(args):
     nclasses = 4
     model = Resnet()
     model.to('cuda')
+    num_devices = device_count()
+    if num_devices >= 2:
+        model = DataParallel(model)
     model.load_state_dict(load(args.model_path))
     model.train(False)
 

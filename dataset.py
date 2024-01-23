@@ -26,6 +26,8 @@ class MCORDS1Dataset(Dataset):
         len_dataset = len(columns)//length
         for i in range(len_dataset):
             self.items.append(torch.stack(columns[i*l:i*l+l], dim = 0))
+        #for i in range(len(columns)-l):
+        #    self.items.append(torch.stack(columns[i:i+l], dim = 0))
 
         print('Total items:', len(self.items), ', Dim items:', self.items[0].shape)
 
@@ -34,7 +36,7 @@ class MCORDS1Dataset(Dataset):
 
     def __getitem__(self,index):
         return self.items[index].float()
-    
+
 if __name__ == '__main__':
     ds = MCORDS1Dataset(length = 10, dim = (24,24), overlap = (12,12))
     print('Shape', ds[1].shape)
