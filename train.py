@@ -2,6 +2,8 @@ from torch.nn.functional import normalize, softmax, cross_entropy
 from torch import einsum, cat, flip, eye, bmm, manual_seed, permute, zeros, tensor, clone, save
 from torch.utils.data import DataLoader
 from torch.optim import Adam
+from torch.cuda import device_count
+from torch.nn import DataParallel
 from model import CNN, Resnet
 from dataset import MCORDS1Dataset
 import matplotlib.pyplot as plt
@@ -22,8 +24,11 @@ def get_args_parser():
 
 def main(args):
     # Model
-    model = CNN()
+    model = Resnet()
     model = model.to('cuda')
+    num_devices = device_count()
+    if num_devices >= 2:
+        model = DataParallel(model)
 
     # Dataset
     dataset = MCORDS1Dataset(length = args.seq_length, dim = args.patch_size, overlap = args.overlap)

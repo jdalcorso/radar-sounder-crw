@@ -29,7 +29,7 @@ def get_args_parser():
 def main(args):
     # Model 
     nclasses = 4
-    model = CNN()
+    model = Resnet()
     model.to('cuda')
     model.load_state_dict(load(args.model_path))
     model.train(False)

@@ -3,9 +3,8 @@ import torch.nn as nn
 from torchvision.models import resnet18
     
 class CNN(nn.Module):
-    def __init__(self, prefc = False):
+    def __init__(self):
         super(CNN, self).__init__()
-        self.prefc = prefc
 
         # Layer 1: Initial layer with a 5x5 filter
         self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1, padding_mode='reflect')
@@ -45,21 +44,27 @@ class CNN(nn.Module):
         x = self.relu4(self.conv4(x))
         x = self.relu5(self.conv5(x))
 
-        if self.prefc:
-            print(x.shape)
-            return x
-
         x = self.global_avg_pool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
 
+
+
+
+
 class Resnet(nn.Module):
-    def __init__(self, prefc = False):
+    def __init__(self):
         super(Resnet, self).__init__()
+        self.fc0 = nn.Conv2d(1, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
+        self.bn0 = nn.BatchNorm2d(3)
+        self.relu0 = nn.ReLU(inplace=True)
         self.model = resnet18()
-        for name, module in self.model.named_modules():
-            print(f"Module name: {name}, Module type: {module}")
+        self.model = nn.Sequential(*list(self.model.children())[:-1])
+        num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(f"Number of trainable parameters: {num_params}")
 
     def forward(self, x):
+        x = self.relu0(self.bn0(self.fc0(x)))
+        x = self.model(x)
         return x
