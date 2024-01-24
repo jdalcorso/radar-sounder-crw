@@ -4,8 +4,7 @@ from torch.nn import DataParallel
 from torch import permute, zeros, load, argmax, manual_seed
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from model import CNN, Resnet
-from dataset import MCORDS1Dataset
+from utils import create_dataset, create_model, get_reference
 from imported.labelprop import LabelPropVOS_CRW
 from imported.crw import CRW
 import argparse
@@ -14,24 +13,25 @@ manual_seed(11)
 
 def get_args_parser():
     parser = argparse.ArgumentParser('CRW Test', add_help=False)
+    # Meta
+    parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
+    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(12,12), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(0,0), type=int) # Should not be changed
     # Label propagation cfg
     parser.add_argument('-c','--cxt_size', default=10, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
-    parser.add_argument('-r','--radius', default=4, type=int)
+    parser.add_argument('-r','--radius', default=2, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=int)
     parser.add_argument('-k','--knn', default=10, type=int)
     # Paths
     parser.add_argument('--model_path', default = './crw/latest.pt')
-    parser.add_argument('--seg_path', default = '/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')
     return parser
 
 def main(args):
     # Model 
-    nclasses = 4
-    model = Resnet()
+    model = create_model(args.model)
     model.to('cuda')
     num_devices = device_count()
     if num_devices >= 2:
@@ -40,14 +40,13 @@ def main(args):
     model.train(False)
 
     # Dataset
-    dataset = MCORDS1Dataset(length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
+    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
     seq = dataset[0].to('cuda')
-
     # Obtain embeddings and reference mask
     T, N, H, W = seq.shape
     emb = model(seq.view(-1, H, W).unsqueeze(1)).view(T,N,-1)
     emb = normalize(emb, dim = -1) # L2
-    seg = load(args.seg_path)[:N*H,:T*W]
+    nclasses, seg = get_reference(id = args.dataset, h = N*H, w = T*W)
     mask = zeros(nclasses, N*H, T*W, device = 'cuda')
     for class_idx in range(0, nclasses):
         m = (seg == class_idx).unsqueeze(0).float()
@@ -84,7 +83,16 @@ def main(args):
     for t in range(1,T):
         print('Range-line:',t)    
         feat = permute(emb[t,:].unsqueeze(0).unsqueeze(0),[0, 3, 2, 1])
-        mask = lp.predict(feats = feats, masks = masks, curr_feat = feat)
+
+        # TODO: context
+        #if t > 2:
+        #    ct2 = args.cxt_size//2
+        #    feats_c = feats[:1]#+feats[-1:]
+        #    masks_c = masks[:1]#+masks[-1:]
+        #else:
+        #    feats_c = feats
+        #    masks_c = masks
+        #mask = lp.predict(feats = feats_c, masks = masks_c, curr_feat = feat)
 
         feats.append(feat)
         masks.append(mask)

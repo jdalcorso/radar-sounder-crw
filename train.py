@@ -4,8 +4,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 from torch.cuda import device_count
 from torch.nn import DataParallel
-from model import CNN, Resnet
-from dataset import MCORDS1Dataset
+from utils import create_model, create_dataset
 import matplotlib.pyplot as plt
 import argparse
 import time
@@ -13,27 +12,30 @@ manual_seed(11)
 
 def get_args_parser():
     parser = argparse.ArgumentParser('CRW Train', add_help=False)
+    # Meta
+    parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
+    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(12,12), type=int)
     parser.add_argument('--seq_length', default=10, type=int)
     parser.add_argument('--overlap', default=(0,0), type=int)
     # Train
     parser.add_argument('--batch_size', default = 64, type=int)
-    parser.add_argument('--epochs', default = 200, type = int)
-    parser.add_argument('--lr', default = 1E-4, type = int)
+    parser.add_argument('--epochs', default = 10, type = int)
+    parser.add_argument('--lr', default = 1E-3, type = int)
     parser.add_argument('--tau', default = 0.07, type = int)
     return parser
 
 def main(args):
     # Model
-    model = Resnet()
+    model = create_model(args.model)
     model = model.to('cuda')
     num_devices = device_count()
     if num_devices >= 2:
         model = DataParallel(model)
 
     # Dataset
-    dataset = MCORDS1Dataset(length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
+    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
     # Hyperparameters
