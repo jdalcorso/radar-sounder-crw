@@ -37,6 +37,40 @@ class MCORDS1Dataset(Dataset):
     def __getitem__(self,index):
         return self.items[index].float()
 
+class MiguelDataset(Dataset):
+    def __init__(self, filepath ='datasets/MCORDS1_Miguel/full_rg.pt', length = 10, dim = (48,48), overlap = (0,0)):
+        self.filepath = filepath # 
+        self.items = []
+        l = length
+        T = torch.load(filepath)
+        H, W = T.shape
+        h, w = dim[0], dim[1]
+        oh,ow = overlap[0], overlap[1]
+        nh, nw = H//(h - oh)-1, W//(w- ow)-1
+        columns = []
+
+        # Create columns of overlapping patches
+        for i in range(nw):
+            column  = torch.zeros(nh, h, w)
+            for j in range(nh):
+                column[j,:,:] = T[j*(h-oh):j*(h-oh)+h, i*(w-ow):i*(w-ow)+w]
+            columns.append(column)
+
+        # Create items of the dataset as sequences of dim TxNxhxw
+        len_dataset = len(columns)//length
+        for i in range(len_dataset):
+            self.items.append(torch.stack(columns[i*l:i*l+l], dim = 0))
+        #for i in range(len(columns)-l):
+        #    self.items.append(torch.stack(columns[i:i+l], dim = 0))
+
+        print('Total items:', len(self.items), ', Dim items:', self.items[0].shape)
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self,index):
+        return self.items[index].float()
+
 if __name__ == '__main__':
     ds = MCORDS1Dataset(length = 10, dim = (24,24), overlap = (12,12))
     print('Shape', ds[1].shape)
