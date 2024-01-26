@@ -1,13 +1,13 @@
-from torch import load, tensor
+from torch import load, tensor, arange, cat
 from scipy.io import loadmat
 from model import CNN, Resnet
 from dataset import MCORDS1Dataset, MiguelDataset
 
-def create_model(id):
+def create_model(id, pos_embed):
     if id == 0:
-        return CNN()
+        return CNN(pos_embed)
     if id == 1:
-        return Resnet()
+        return Resnet(pos_embed)
     
 def create_dataset(id, length, dim, overlap):
     if id == 0:
@@ -22,3 +22,11 @@ def get_reference(id,h,w):
     if id == 1:
         seg = loadmat('./datasets/MCORDS1_Miguel/gt/gt_01.mat')
         return 4, tensor(seg['gtR1_v3'])[:h,:w]
+
+def pos_embed(seq):
+    # seq has size BT x 1 x H x W
+    BT, _, H, W = seq.size()
+    pe = arange(0, H).unsqueeze(-1)/H-0.5  # H x 1
+    pe = pe.repeat([1,W]) # H x W
+    pe = pe.unsqueeze(0).unsqueeze(0).repeat([BT,1,1,1]) # BT x 1 x H x W
+    return cat([pe.to('cuda'),seq], dim = 1)

@@ -3,11 +3,14 @@ import torch.nn as nn
 from torchvision.models import resnet18
     
 class CNN(nn.Module):
-    def __init__(self):
+    def __init__(self, pos_embed):
         super(CNN, self).__init__()
 
         # Layer 1: Initial layer with a 5x5 filter
-        self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1, padding_mode='reflect')
+        if pos_embed:
+            self.conv1 = nn.Conv2d(2, 8, kernel_size=5, padding=1, padding_mode='reflect')
+        else:
+            self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1, padding_mode='reflect')
         self.relu1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=1)
         
@@ -54,9 +57,12 @@ class CNN(nn.Module):
 
 
 class Resnet(nn.Module):
-    def __init__(self):
+    def __init__(self, pos_embed):
         super(Resnet, self).__init__()
-        self.fc0 = nn.Conv2d(1, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
+        if pos_embed:
+            self.fc0 = nn.Conv2d(2, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
+        else:
+            self.fc0 = nn.Conv2d(1, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
         self.bn0 = nn.BatchNorm2d(3)
         self.relu0 = nn.ReLU(inplace=True)
         self.model = resnet18()
