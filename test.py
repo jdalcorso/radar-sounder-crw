@@ -59,12 +59,7 @@ def main(args):
     emb = model(seq).view(T,N,-1)
     emb = normalize(emb, dim = -1) # L2
     nclasses, seg = get_reference(id = args.dataset, h = N*H, w = T*W)
-    mask = zeros(nclasses, N*H, T*W, device = 'cuda')
-    for class_idx in range(0, nclasses):
-        m = (seg == class_idx).unsqueeze(0).float()
-        mask[class_idx, :, :] = m
-    mask = mask.unsqueeze(0)
-
+    
     # Define label propagation method TODO: Implement context by slicing feats/masks
     cfg = {
         'CXT_SIZE' : args.cxt_size, 

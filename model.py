@@ -67,10 +67,12 @@ class Resnet(nn.Module):
         self.relu0 = nn.ReLU(inplace=True)
         self.model = resnet18()
         self.model = nn.Sequential(*list(self.model.children())[:-1])
+        self.final = nn.Sequential(*[nn.Linear(512,256), nn.ReLU(), nn.Linear(256,128), nn.ReLU()])
         num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         print(f"Number of trainable parameters: {num_params}")
 
     def forward(self, x):
         x = self.relu0(self.bn0(self.fc0(x)))
         x = self.model(x)
+        x = self.final(x.squeeze())
         return x

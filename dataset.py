@@ -12,9 +12,8 @@ class MCORDS1Dataset(Dataset):
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]
-        nh, nw = H//(h - oh)-1, W//(w- ow)-1
+        nh, nw = H//(h - oh)-(oh//(h-oh)), W//(w- ow)-(ow//(w-ow))
         columns = []
-
         # Create columns of overlapping patches
         for i in range(nw):
             column  = torch.zeros(nh, h, w)
