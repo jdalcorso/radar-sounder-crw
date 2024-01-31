@@ -21,11 +21,11 @@ def get_args_parser():
     parser.add_argument('--overlap', default=(8,8), type=int)
     # Train
     parser.add_argument('--batch_size', default = 128, type=int)
-    parser.add_argument('--epochs', default = 20, type = int)
+    parser.add_argument('--epochs', default = 50, type = int)
     parser.add_argument('--lr', default = 1E-3, type = int)
     parser.add_argument('--tau', default = 0.07, type = int)
     # Dev
-    parser.add_argument('--pos_embed', default = True, type = bool)
+    parser.add_argument('--pos_embed', default = False, type = bool)
     return parser
 
 def main(args):

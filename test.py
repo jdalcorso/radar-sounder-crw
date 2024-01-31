@@ -19,7 +19,7 @@ def get_args_parser():
     # Data
     parser.add_argument('--patch_size', default=(16,16), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
-    parser.add_argument('--overlap', default=(0,0), type=int) # Should not be changed
+    parser.add_argument('--overlap', default=(15,15), type=int) # Should not be changed
     # Label propagation cfg
     parser.add_argument('-c','--cxt_size', default=10, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
     parser.add_argument('-r','--radius', default=2, type=int)
@@ -28,7 +28,7 @@ def get_args_parser():
     # Paths
     parser.add_argument('--model_path', default = './crw/latest.pt')
     # Dev
-    parser.add_argument('--pos_embed', default = True)
+    parser.add_argument('--pos_embed', default = False)
     return parser
 
 def main(args):

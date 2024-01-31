@@ -17,11 +17,25 @@ def create_dataset(id, length, dim, overlap):
     
 def get_reference(id,h,w):
     # Returns number of classes and reference initial segmentation
+    # w = 0 -> return the whole dataset 
     if id == 0:
-        return 4, load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')[:h,:w]
+        if w == 0:
+            return 4, load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')[:h,:]
+        else:
+            return 4, load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')[:h,:w]
+    # GT only for the first radargram
     if id == 1:
         seg = loadmat('./datasets/MCORDS1_Miguel/gt/gt_01.mat')
-        return 4, tensor(seg['gtR1_v3'])[:h,:w]
+        if w == 0:
+            return 4, tensor(seg['gtR1_v3'])[:h,:]
+        else:
+            return 4, tensor(seg['gtR1_v3'])[:h,:w]
+    # Same as id==0 but with uncertain class
+    if id == 2:
+        if w == 0:
+            return 4, load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')[:h,:]
+        else:
+            return 4, load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')[:h,:w]
 
 def pos_embed(seq):
     # seq has size BT x 1 x H x W
