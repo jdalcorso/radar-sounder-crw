@@ -148,7 +148,7 @@ def context_index_bank(n_context, long_mem, N):
 
     return ll + ss
 
-def batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
+def batched_affinity(query, keys, mask, temperature, topk, long_mem, ctx, device):
     '''
     Mini-batched computation of affinity, for memory efficiency
     (less aggressively mini-batched)
@@ -157,11 +157,14 @@ def batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
     A = torch.einsum('ijklm,ijkn->iklmn', keys, query)
 
     # Mask
-    A[0, :, len(long_mem):] += mask.to(device)
+    A[0, :, :] += mask.to(device)
 
     _, N, T, h1w1, hw = A.shape
     A = A.view(N, T*h1w1, hw)
     A /= temperature
+
+    if A.shape[1]>(ctx+1)*hw:
+        A = torch.cat([A[:,:hw,:],A[:,-hw*ctx:,:]], dim = 1)
 
     weights, ids = torch.topk(A, topk, dim=-2)
     weights = F.softmax(weights, dim=-2)

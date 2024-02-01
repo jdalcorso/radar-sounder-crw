@@ -7,7 +7,7 @@ License: MIT
 import sys
 import torch
 from .maskedatt import MaskedAttention
-from .maskedatt import mem_efficient_batched_affinity as batched_affinity
+from .maskedatt import batched_affinity
 
 class LabelPropVOS(object):
 
@@ -100,7 +100,7 @@ class LabelPropVOS_CRW(LabelPropVOS):
 
         long_mem = [0]
         Ws, Is = batched_affinity(query, keys, self.mask,  \
-                self.temperature, self.topk, long_mem)
+                self.temperature, self.topk, long_mem, self.cxt_size, 'cuda')
 
         # Soft labels of source nodes
         ctx_lbls = ctx_lbls.flatten(0, 2).transpose(0, 1)
