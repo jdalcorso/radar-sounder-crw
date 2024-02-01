@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 from torchvision.models import resnet18
     
@@ -59,15 +58,23 @@ class CNN(nn.Module):
 class Resnet(nn.Module):
     def __init__(self, pos_embed):
         super(Resnet, self).__init__()
+        # 1-2 channels -> 3 channels
         if pos_embed:
-            self.fc0 = nn.Conv2d(2, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
+            self.fc0 = nn.Conv2d(2, 3, kernel_size=3, padding=1, padding_mode='reflect')# To get 3 channels
         else:
-            self.fc0 = nn.Conv2d(1, 3, kernel_size=7, padding=1, padding_mode='reflect')# To get 3 channels
+            self.fc0 = nn.Conv2d(1, 3, kernel_size=3, padding=1, padding_mode='reflect')# To get 3 channels
         self.bn0 = nn.BatchNorm2d(3)
         self.relu0 = nn.ReLU(inplace=True)
+
+        # resnet18 encoder
         self.model = resnet18()
         self.model = nn.Sequential(*list(self.model.children())[:-1])
+        self.model[0].kernel_size = (3,3)
+        self.model[0].padding = (1,1)
+
+        # final linear layers
         self.final = nn.Sequential(*[nn.Linear(512,256), nn.ReLU(), nn.Linear(256,128), nn.ReLU()])
+
         num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         print(f"Number of trainable parameters: {num_params}")
 

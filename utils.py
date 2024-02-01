@@ -2,6 +2,8 @@ from torch import load, tensor, arange, cat
 from scipy.io import loadmat
 from model import CNN, Resnet
 from dataset import MCORDS1Dataset, MiguelDataset
+import matplotlib.pyplot as plt
+from torch.nn.functional import softmax
 
 def create_model(id, pos_embed):
     if id == 0:
@@ -44,3 +46,19 @@ def pos_embed(seq):
     pe = pe.repeat([1,W]) # H x W
     pe = pe.unsqueeze(0).unsqueeze(0).repeat([BT,1,1,1]) # BT x 1 x H x W
     return cat([pe.to('cuda'),seq], dim = 1)
+
+def show_A(A):
+    # A with dimension B T-1 N N
+    B, T, _, _ = A.shape    
+    _, axes = plt.subplots(B, T, figsize=(T * 3, B * 3))
+    axes = axes.flatten()
+    
+    for i in range(B * T):
+        image = A[i // T, i % T].cpu().detach()  # Convert to NumPy array for Matplotlib
+        axes[i].imshow(softmax(image,dim = 1), cmap='gray')  # Assuming grayscale images, adjust cmap if using color images
+        axes[i].axis('off')  # Turn off axis labels
+    
+    plt.tight_layout()
+    plt.show()
+    plt.savefig('transitions.png')
+    plt.close()

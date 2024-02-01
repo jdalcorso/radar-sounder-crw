@@ -26,16 +26,16 @@ def get_args_parser():
     # Data
     parser.add_argument('--patch_size', default=(16,16), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
-    parser.add_argument('--overlap', default=(15,15), type=int) # Should not be changed
+    parser.add_argument('--overlap', default=(15,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=10, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
-    parser.add_argument('-r','--radius', default=2, type=int)
-    parser.add_argument('-t','--temp', default=0.01, type=int)
+    parser.add_argument('-c','--cxt_size', default=80, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
+    parser.add_argument('-r','--radius', default=20, type=int)
+    parser.add_argument('-t','--temp', default=0.01, type=float)
     parser.add_argument('-k','--knn', default=10, type=int)
     # Paths
     parser.add_argument('--model_path', default = './crw/latest.pt')
     # Dev
-    parser.add_argument('--pos_embed', default = False)
+    parser.add_argument('--pos_embed', default = True)
     parser.add_argument('--remove_unc', default = True)
     return parser
 
@@ -43,6 +43,7 @@ def get_args_parser():
 
 def main(args):
     tim = time.time()
+    print(args)
 
     # Model
     device = torch.device('cuda' if is_available() else 'cpu')
@@ -128,7 +129,8 @@ def main(args):
             final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
 
         final_prediction = up(final_prediction[None]).squeeze()
-        plt.imshow(final_prediction.cpu())
+        plt.imshow(final_prediction.cpu(), interpolation="nearest")
+        plt.tight_layout()
         plt.savefig('./crw/output/im'+str(t)+'.png')
         plt.close()
         seg_list.append(final_prediction)
