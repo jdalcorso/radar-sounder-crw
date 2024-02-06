@@ -4,11 +4,13 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset 
 
 class MCORDS1Dataset(Dataset):
-    def __init__(self, filepath ='/data/MCoRDS1_2010_DC8/RG_MCoRDS1_2010_DC8.pt', length = 10, dim = (24,24), overlap = (0,0)):
+    def __init__(self, filepath ='/data/MCoRDS1_2010_DC8/RG_MCoRDS1_2010_DC8.pt', length = 10, dim = (24,24), overlap = (0,0), flip = False):
         self.filepath = filepath # 410 x 27350
         self.items = []
         l = length
         T = torch.load(filepath)
+        if flip:
+            T = torch.flip(input = T, dims = W)
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]
@@ -37,11 +39,13 @@ class MCORDS1Dataset(Dataset):
         return self.items[index].float()
 
 class MiguelDataset(Dataset):
-    def __init__(self, filepath ='datasets/MCORDS1_Miguel/full_rg.pt', length = 10, dim = (48,48), overlap = (0,0)):
+    def __init__(self, filepath ='datasets/MCORDS1_Miguel/full_rg.pt', length = 10, dim = (48,48), overlap = (0,0), flip = False):
         self.filepath = filepath # 
         self.items = []
         l = length
         T = torch.load(filepath)
+        if flip:
+            T = torch.flip(input = T, dims = W)
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]

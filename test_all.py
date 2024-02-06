@@ -16,7 +16,6 @@ import time
 import matplotlib.pyplot as plt
 manual_seed(11)
 
-from imported.crw import CRW
 
 def get_args_parser():
     parser = argparse.ArgumentParser('CRW Test', add_help=False)
@@ -29,9 +28,9 @@ def get_args_parser():
     parser.add_argument('--overlap', default=(15,0), type=int) # Should not be changed
     # Label propagation cfg
     parser.add_argument('-c','--cxt_size', default=80, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
-    parser.add_argument('-r','--radius', default=20, type=int)
+    parser.add_argument('-r','--radius', default=25, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=float)
-    parser.add_argument('-k','--knn', default=10, type=int)
+    parser.add_argument('-k','--knn', default=30, type=int)
     # Paths
     parser.add_argument('--model_path', default = './crw/latest.pt')
     # Dev

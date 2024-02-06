@@ -11,11 +11,11 @@ def create_model(id, pos_embed):
     if id == 1:
         return Resnet(pos_embed)
     
-def create_dataset(id, length, dim, overlap):
+def create_dataset(id, length, dim, overlap, flip = False):
     if id == 0:
-        return MCORDS1Dataset(length = length, dim = dim, overlap = overlap)
+        return MCORDS1Dataset(length = length, dim = dim, overlap = overlap, flip = flip)
     if id == 1:
-        return MiguelDataset(length = length, dim = dim, overlap = overlap)
+        return MiguelDataset(length = length, dim = dim, overlap = overlap, flip = flip)
     
 def get_reference(id,h,w):
     # Returns number of classes and reference initial segmentation
