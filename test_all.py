@@ -35,8 +35,11 @@ def get_args_parser():
     parser.add_argument('--model_path', default = './crw/latest.pt')
     # Dev
     parser.add_argument('--pos_embed', default = True)
-    parser.add_argument('--remove_unc', default = True)
-    parser.add_argument('--flip', default = False)
+    parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
+    parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
+    parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
+    parser.add_argument('--save_pred', default = True) # Save prediction
+
     return parser
 
 
@@ -75,6 +78,10 @@ def main(args):
     print('Num of radargrams:',tot_rg,'Radargram length:', rg_len)
 
     seg = seg[:,:tot_rg*rg_len]
+    if args.use_last:
+        seg = seg.unfold(dimension = 1, size = rg_len, step = rg_len)
+        seg = torch.flip(seg, (-1,))
+        seg = seg.view(seg.shape[0],-1)
 
     down = transforms.Resize((N,1), interpolation = InterpolationMode.NEAREST)
     up = transforms.Resize((seg.shape[0],rg_len), interpolation = InterpolationMode.NEAREST)
@@ -84,7 +91,8 @@ def main(args):
     for t in range(tot_rg):
         print('Radargram',t)
         seq = dataset[t].to('cuda')
-        
+        if args.use_last: seq = torch.flip(seq,(0,))
+
         # Obtain image (to plot)
         img = zeros((N*H,T*W))
         for i in range(T):
@@ -138,11 +146,16 @@ def main(args):
     # Concat seg_list to match the dimension of the full ground truth segmentation
     predicted_seg = cat(seg_list, dim = 1).flatten()
     gt_seg = seg.flatten()
+    if args.save_pred: torch.save(predicted_seg, './crw/pred.pt')
 
     # Remove class 4 (uncertain)
     if args.remove_unc and args.dataset == 0:
         _, unc_seg = get_reference(id = 2, h = N*H, w = 0, flip=args.flip)
         unc_seg = unc_seg[:,:tot_rg*rg_len]
+        if args.use_last:
+            unc_seg = unc_seg.unfold(dimension = 1, size = rg_len, step = rg_len)
+            unc_seg = torch.flip(unc_seg, (-1,))
+            unc_seg = unc_seg.view(unc_seg.shape[0],-1)
         mask = (unc_seg != 4).flatten()
         gt = gt_seg[mask]
         pred = predicted_seg[mask]
