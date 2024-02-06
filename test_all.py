@@ -77,10 +77,6 @@ def main(args):
     print('Num of radargrams:',tot_rg,'Radargram length:', rg_len)
 
     seg = seg[:,:tot_rg*rg_len]
-    if args.use_last:
-        seg = seg.unfold(dimension = 1, size = rg_len, step = rg_len)
-        seg = torch.flip(seg, (-1,))
-        seg = seg.view(seg.shape[0],-1)
 
     up = transforms.Resize((seg.shape[0],rg_len), interpolation = InterpolationMode.NEAREST)
 
@@ -97,7 +93,6 @@ def main(args):
     # Concat seg_list to match the dimension of the full ground truth segmentation
     predicted_seg = cat(seg_list, dim = 1).flatten()
     gt_seg = seg.flatten()
-    if args.save_pred: torch.save(predicted_seg, './crw/pred.pt')
 
     if args.use_last:
         print('Reversed')
@@ -112,7 +107,7 @@ def main(args):
             final_prediction = up(final_prediction[None]).squeeze()
             plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png')
             seg_list.append(final_prediction)
-            
+
         pred_seg_rev = cat(seg_list, dim = 1).unfold(dimension = 1, size = rg_len, step = rg_len)
         pred_seg_rev = torch.flip(pred_seg_rev, (-1,)).view(pred_seg_rev.shape[0],-1).flatten()
         # Merge predictions
@@ -126,10 +121,6 @@ def main(args):
     if args.remove_unc and args.dataset == 0:
         _, unc_seg = get_reference(id = 2, h = N*H, w = 0, flip=args.flip)
         unc_seg = unc_seg[:,:tot_rg*rg_len]
-        if args.use_last:
-            unc_seg = unc_seg.unfold(dimension = 1, size = rg_len, step = rg_len)
-            unc_seg = torch.flip(unc_seg, (-1,))
-            unc_seg = unc_seg.view(unc_seg.shape[0],-1)
         mask = (unc_seg != 4).flatten()
         gt = gt_seg[mask]
         pred = final_pred[mask]
