@@ -27,7 +27,7 @@ def get_args_parser():
     parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(15,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=20, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
+    parser.add_argument('-c','--cxt_size', default=80, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
     parser.add_argument('-r','--radius', default=25, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=float)
     parser.add_argument('-k','--knn', default=30, type=int)
@@ -37,7 +37,7 @@ def get_args_parser():
     parser.add_argument('--pos_embed', default = True)
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
-    parser.add_argument('--use_last', default = False) # Use last sample as reference for each rg
+    parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
     parser.add_argument('--save_pred', default = True) # Save prediction
 
     return parser
@@ -83,7 +83,6 @@ def main(args):
         seg = torch.flip(seg, (-1,))
         seg = seg.view(seg.shape[0],-1)
 
-    down = transforms.Resize((N,1), interpolation = InterpolationMode.NEAREST)
     up = transforms.Resize((seg.shape[0],rg_len), interpolation = InterpolationMode.NEAREST)
 
     # Compute segmentation for each radargram
@@ -91,7 +90,7 @@ def main(args):
     for t in range(tot_rg):
         print('Radargram',t)
         seq = dataset[t].to('cuda')
-        final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, args.use_last)
+        final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = False)
 
         final_prediction = up(final_prediction[None]).squeeze()
         plt.imshow(final_prediction.cpu(), interpolation="nearest")
@@ -105,6 +104,32 @@ def main(args):
     gt_seg = seg.flatten()
     if args.save_pred: torch.save(predicted_seg, './crw/pred.pt')
 
+    if args.use_last:
+        print('Reversed')
+        # Compute segmentation for each reversed radargram
+        seg = seg.unfold(dimension = 1, size = rg_len, step = rg_len)
+        seg = torch.flip(seg, (-1,)).view(seg.shape[0],-1)
+        seg_list = []
+        for t in range(tot_rg):
+            print('Radargram',t)
+            seq = dataset[t].to('cuda')
+            final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = True)
+
+            final_prediction = up(final_prediction[None]).squeeze()
+            plt.imshow(final_prediction.cpu(), interpolation="nearest")
+            plt.tight_layout()
+            plt.savefig('./crw/output/im'+str(t)+'.png')
+            plt.close()
+            seg_list.append(final_prediction)
+        pred_seg_rev = cat(seg_list, dim = 1).unfold(dimension = 1, size = rg_len, step = rg_len)
+        pred_seg_rev = torch.flip(pred_seg_rev, (-1,)).view(pred_seg_rev.shape[0],-1).flatten()
+        # Merge predictions
+        final_pred = predicted_seg
+        mask = pred_seg_rev == 2
+        final_pred[mask] = 2
+    else:
+        final_pred = predicted_seg
+
     # Remove class 4 (uncertain)
     if args.remove_unc and args.dataset == 0:
         _, unc_seg = get_reference(id = 2, h = N*H, w = 0, flip=args.flip)
@@ -115,10 +140,10 @@ def main(args):
             unc_seg = unc_seg.view(unc_seg.shape[0],-1)
         mask = (unc_seg != 4).flatten()
         gt = gt_seg[mask]
-        pred = predicted_seg[mask]
+        pred = final_pred[mask]
     else:
         gt = gt_seg
-        pred = predicted_seg
+        pred = final_pred
 
     # Compute reports
     print('Computing reports ...')
