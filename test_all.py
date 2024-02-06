@@ -5,7 +5,7 @@ from torch.nn import DataParallel
 from torch import permute, zeros, load, argmax, manual_seed, device, cat, inference_mode
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from utils import create_dataset, create_model, get_reference, pos_embed
+from utils import create_dataset, create_model, get_reference, propagate
 from imported.labelprop import LabelPropVOS_CRW
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
@@ -27,7 +27,7 @@ def get_args_parser():
     parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(15,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=80, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
+    parser.add_argument('-c','--cxt_size', default=20, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
     parser.add_argument('-r','--radius', default=25, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=float)
     parser.add_argument('-k','--knn', default=30, type=int)
@@ -37,7 +37,7 @@ def get_args_parser():
     parser.add_argument('--pos_embed', default = True)
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
-    parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
+    parser.add_argument('--use_last', default = False) # Use last sample as reference for each rg
     parser.add_argument('--save_pred', default = True) # Save prediction
 
     return parser
@@ -91,50 +91,7 @@ def main(args):
     for t in range(tot_rg):
         print('Radargram',t)
         seq = dataset[t].to('cuda')
-        if args.use_last: seq = torch.flip(seq,(0,))
-
-        # Obtain image (to plot)
-        img = zeros((N*H,T*W))
-        for i in range(T):
-            for n in range(N):
-                img[n*H:n*H+H,i*W:i*W+W] = seq[i,n,:,:]
-
-        # Obtain embeddings and reference mask
-        seq = seq.view(-1, H, W).unsqueeze(1)
-        if args.pos_embed:
-            seq = pos_embed(seq)
-        emb = model(seq).view(T,N,-1)
-        emb = normalize(emb, dim = -1) # L2
-
-        feats = []
-        masks = []
-
-        final_prediction = zeros(N,T, device = 'cuda')
-
-        # Add reference mask and features
-        seg_ref = seg[:,rg_len * t:rg_len * t + W]
-        #print(rg_len * t, rg_len * t+W)
-
-        label = down(seg_ref.unsqueeze(0)).squeeze(0).to('cuda')
-        final_prediction[:,0] = label.squeeze(1)
-        mask = zeros(nclasses, N, 1, device = 'cuda')
-        for class_idx in range(0, nclasses):
-            m = (label == class_idx).unsqueeze(0).float()
-            mask[class_idx, :, :] = m
-        mask = mask.unsqueeze(0)
-        feat = permute(emb[0,:].unsqueeze(0).unsqueeze(0),[0, 3, 2, 1])
-        feats.append(feat)
-        masks.append(mask)
-
-        for n in range(1,T):
-            feat = permute(emb[n,:].unsqueeze(0).unsqueeze(0),[0, 3, 2, 1])
-            mask = lp.predict(feats = feats, masks = masks, curr_feat = feat)
-
-            feats.append(feat)
-            masks.append(mask)
-
-            # Add new mask (no more one-hot) to the final prediction
-            final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
+        final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, args.use_last)
 
         final_prediction = up(final_prediction[None]).squeeze()
         plt.imshow(final_prediction.cpu(), interpolation="nearest")
