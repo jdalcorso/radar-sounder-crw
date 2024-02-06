@@ -10,7 +10,7 @@ class MCORDS1Dataset(Dataset):
         l = length
         T = torch.load(filepath)
         if flip:
-            T = torch.flip(input = T, dims = W)
+            T = torch.flip(input = T, dims = (1,))
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]
@@ -45,7 +45,7 @@ class MiguelDataset(Dataset):
         l = length
         T = torch.load(filepath)
         if flip:
-            T = torch.flip(input = T, dims = W)
+            T = torch.flip(input = T, dims = (1,))
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]

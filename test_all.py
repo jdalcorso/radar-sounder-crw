@@ -36,6 +36,7 @@ def get_args_parser():
     # Dev
     parser.add_argument('--pos_embed', default = True)
     parser.add_argument('--remove_unc', default = True)
+    parser.add_argument('--flip', default = False)
     return parser
 
 
@@ -54,10 +55,10 @@ def main(args):
     model.load_state_dict(load(args.model_path))
 
     # Dataset and reference
-    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
+    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap, flip=args.flip)
     dummy = dataset[0].to('cuda') # dummy
     T, N, H, W = dummy.shape
-    nclasses, seg = get_reference(id = args.dataset, h = N*H, w = 0)
+    nclasses, seg = get_reference(id = args.dataset, h = N*H, w = 0, flip=args.flip)
 
     # Label propagation method
     cfg = {
@@ -140,7 +141,7 @@ def main(args):
 
     # Remove class 4 (uncertain)
     if args.remove_unc and args.dataset == 0:
-        _, unc_seg = get_reference(id = 2, h = N*H, w = 0)
+        _, unc_seg = get_reference(id = 2, h = N*H, w = 0, flip=args.flip)
         unc_seg = unc_seg[:,:tot_rg*rg_len]
         mask = (unc_seg != 4).flatten()
         gt = gt_seg[mask]

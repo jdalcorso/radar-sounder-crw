@@ -3,6 +3,7 @@ from scipy.io import loadmat
 from model import CNN, Resnet
 from dataset import MCORDS1Dataset, MiguelDataset
 import matplotlib.pyplot as plt
+import torch
 from torch.nn.functional import softmax
 
 def create_model(id, pos_embed):
@@ -17,27 +18,25 @@ def create_dataset(id, length, dim, overlap, flip = False):
     if id == 1:
         return MiguelDataset(length = length, dim = dim, overlap = overlap, flip = flip)
     
-def get_reference(id,h,w):
+def get_reference(id,h,w, flip = False):
     # Returns number of classes and reference initial segmentation
     # w = 0 -> return the whole dataset 
     if id == 0:
-        if w == 0:
-            return 4, load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')[:h,:]
-        else:
-            return 4, load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')[:h,:w]
+        data = load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')
+        
     # GT only for the first radargram
     if id == 1:
         seg = loadmat('./datasets/MCORDS1_Miguel/gt/gt_01.mat')
-        if w == 0:
-            return 4, tensor(seg['gtR1_v3'])[:h,:]
-        else:
-            return 4, tensor(seg['gtR1_v3'])[:h,:w]
+        data = tensor(seg['gtR1_v3'])
+        
     # Same as id==0 but with uncertain class
     if id == 2:
-        if w == 0:
-            return 4, load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')[:h,:]
-        else:
-            return 4, load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')[:h,:w]
+        data = load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')
+        
+    nclasses = 4
+    data = data[:h,:] if w==0 else data[:h,:w]
+    return (nclasses, torch.flip(data, (1,))) if flip else (nclasses, data)
+
 
 def pos_embed(seq):
     # seq has size BT x 1 x H x W
