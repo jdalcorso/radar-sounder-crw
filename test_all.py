@@ -5,7 +5,7 @@ from torch.nn import DataParallel
 from torch import permute, zeros, load, argmax, manual_seed, device, cat, inference_mode
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from utils import create_dataset, create_model, get_reference, propagate
+from utils import create_dataset, create_model, get_reference, propagate, plot
 from imported.labelprop import LabelPropVOS_CRW
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
@@ -38,7 +38,6 @@ def get_args_parser():
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
     parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
-    parser.add_argument('--save_pred', default = True) # Save prediction
 
     return parser
 
@@ -91,12 +90,8 @@ def main(args):
         print('Radargram',t)
         seq = dataset[t].to('cuda')
         final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = False)
-
         final_prediction = up(final_prediction[None]).squeeze()
-        plt.imshow(final_prediction.cpu(), interpolation="nearest")
-        plt.tight_layout()
-        plt.savefig('./crw/output/im'+str(t)+'.png')
-        plt.close()
+        plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png')
         seg_list.append(final_prediction)
 
     # Concat seg_list to match the dimension of the full ground truth segmentation
@@ -114,13 +109,10 @@ def main(args):
             print('Radargram',t)
             seq = dataset[t].to('cuda')
             final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = True)
-
             final_prediction = up(final_prediction[None]).squeeze()
-            plt.imshow(final_prediction.cpu(), interpolation="nearest")
-            plt.tight_layout()
-            plt.savefig('./crw/output/im'+str(t)+'.png')
-            plt.close()
+            plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png')
             seg_list.append(final_prediction)
+            
         pred_seg_rev = cat(seg_list, dim = 1).unfold(dimension = 1, size = rg_len, step = rg_len)
         pred_seg_rev = torch.flip(pred_seg_rev, (-1,)).view(pred_seg_rev.shape[0],-1).flatten()
         # Merge predictions

@@ -64,6 +64,13 @@ def show_A(A):
     plt.savefig('transitions.png')
     plt.close()
 
+def plot(img, save = None):
+    plt.imshow(img, interpolation="nearest")
+    plt.tight_layout()
+    if save is not None:
+        plt.savefig(save)
+    plt.close()
+
 def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     '''
     seq:        sequence of shape T, N, H, W
