@@ -1,4 +1,3 @@
-import os
 import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset 
@@ -39,8 +38,8 @@ class MCORDS1Dataset(Dataset):
         return self.items[index].float()
 
 class MiguelDataset(Dataset):
-    def __init__(self, filepath ='datasets/MCORDS1_Miguel/full_rg.pt', length = 10, dim = (48,48), overlap = (0,0), flip = False):
-        self.filepath = filepath # 
+    def __init__(self, filepath ='datasets/MCORDS1_Miguel/rg2.pt', length = 10, dim = (48,48), overlap = (0,0), flip = False):
+        self.filepath = filepath # 1536 x 105120
         self.items = []
         l = length
         T = torch.load(filepath)
@@ -49,7 +48,7 @@ class MiguelDataset(Dataset):
         H, W = T.shape
         h, w = dim[0], dim[1]
         oh,ow = overlap[0], overlap[1]
-        nh, nw = H//(h - oh)-1, W//(w- ow)-1
+        nh, nw = H//(h - oh)-(oh//(h-oh)), W//(w- ow)-(ow//(w-ow))
         columns = []
 
         # Create columns of overlapping patches

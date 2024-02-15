@@ -1,5 +1,4 @@
-from torch import load, tensor, arange, cat, argmax
-from scipy.io import loadmat
+from torch import load, arange, cat, argmax
 from model import CNN, Resnet
 from dataset import MCORDS1Dataset, MiguelDataset
 import matplotlib.pyplot as plt
@@ -25,17 +24,15 @@ def get_reference(id,h,w, flip = False):
     # w = 0 -> return the whole dataset 
     if id == 0:
         data = load('/data/MCoRDS1_2010_DC8/SG2_MCoRDS1_2010_DC8.pt')
-        
+        nclasses = 4
     # GT only for the first radargram
     if id == 1:
-        seg = loadmat('./datasets/MCORDS1_Miguel/gt/gt_01.mat')
-        data = tensor(seg['gtR1_v3'])
-        
+        data = load('./datasets/MCORDS1_Miguel/seg2.pt')
+        nclasses = 6
     # Same as id==0 but with uncertain class
     if id == 2:
         data = load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')
-        
-    nclasses = 4
+        nclasses = 4
     data = data[:h,:] if w==0 else data[:h,:w]
     return (nclasses, torch.flip(data, (1,))) if flip else (nclasses, data)
 
@@ -64,12 +61,25 @@ def show_A(A):
     plt.savefig('transitions.png')
     plt.close()
 
-def plot(img, save = None):
-    plt.imshow(img, interpolation="nearest")
-    plt.tight_layout()
-    if save is not None:
-        plt.savefig(save)
-    plt.close()
+def plot(img, save = None, seg = None):
+    if seg is None:
+        plt.imshow(img, interpolation="nearest")
+        plt.tight_layout()
+        plt.axis('off')
+        if save is not None:
+            plt.savefig(save)
+        plt.close()
+    else:
+        plt.subplot(121)
+        plt.imshow(img, interpolation="nearest")
+        plt.axis('off')
+        plt.subplot(122)
+        plt.imshow(seg)
+        plt.axis('off')
+        plt.tight_layout()
+        if save is not None:
+            plt.savefig(save)
+        plt.close()
 
 def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     '''
@@ -81,7 +91,7 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     nclasses:   number of classes
     rg_len:     length of the radargram (=N*W if no overlap in W dimension)
     pos_embed:  whether or not positional embedding has been used in the model
-    use_last:   wheter or not the last sample is used as reference
+    use_last:   whether or not the last sample is used as reference
     '''
     T, N, H, W = seq.shape
     if use_last: seq = torch.flip(seq,(0,))
