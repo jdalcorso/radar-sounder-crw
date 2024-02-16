@@ -66,7 +66,7 @@ def main(args):
         print('Epoch:',epoch,'Loss:',loss_epoch.item(), 'Time:', time.time()-t0)
 
     plt.plot(loss_tot)
-    plt.savefig('./crw/loss.png')
+    plt.savefig('./crw/output/a_loss.png')
     plt.close()
     save(model.state_dict(), './crw/latest.pt')
 

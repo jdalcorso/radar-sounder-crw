@@ -59,7 +59,7 @@ def main(args):
 
     t = 0
     final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = False)
-    plot(img = final_prediction.cpu(), save = './crw/reco.png', seg = img)
+    plot(img = final_prediction.cpu(), save = './crw/output/a_reco.png', seg = img)
     print('Test done.')
 
 if __name__ == '__main__':
