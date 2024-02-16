@@ -28,13 +28,13 @@ def get_args_parser():
 
 def main(args):
     # Model 
-    model = create_model(args.model, args.pos_embed)
-    model.to('cuda')
+    encoder = create_model(args.model, args.pos_embed)
+    encoder.to('cuda')
     num_devices = device_count()
     if num_devices >= 2:
-        model = DataParallel(model)
-    model.load_state_dict(load(args.model_path))
-    model.train(False)
+        encoder = DataParallel(encoder)
+    encoder.load_state_dict(load(args.model_path))
+    encoder.train(False)
 
     # Dataset
     dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
@@ -58,7 +58,7 @@ def main(args):
     lp = LabelPropVOS_CRW(cfg)
 
     t = 0
-    final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = False)
+    final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
     plot(img = final_prediction.cpu(), save = './crw/output/a_reco.png', seg = img)
     print('Test done.')
 

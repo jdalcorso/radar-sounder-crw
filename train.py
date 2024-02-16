@@ -14,14 +14,14 @@ def get_args_parser():
     parser = argparse.ArgumentParser('CRW Train', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(16,16), type=int)
     parser.add_argument('--seq_length', default=4, type=int)
     parser.add_argument('--overlap', default=(8,0), type=int)
     # Train
     parser.add_argument('--batch_size', default = 128, type=int)
-    parser.add_argument('--epochs', default = 1, type = int)
+    parser.add_argument('--epochs', default = 10, type = int)
     parser.add_argument('--lr', default = 1E-3, type = int)
     parser.add_argument('--tau', default = 0.01, type = int)
     # Dev
@@ -68,7 +68,7 @@ def main(args):
     plt.plot(loss_tot)
     plt.savefig('./crw/output/a_loss.png')
     plt.close()
-    save(model.state_dict(), './crw/latest.pt')
+    save(encoder.state_dict(), './crw/latest.pt')
 
 if __name__ == '__main__':
     args = get_args_parser()

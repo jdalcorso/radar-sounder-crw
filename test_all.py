@@ -3,11 +3,11 @@ from torch.cuda import device_count, is_available
 from torch.nn import DataParallel
 from torch import load, manual_seed, cat, logical_and, flip, device
 from utils import create_dataset, create_model, get_reference, propagate, plot
+from model import CRW
 from imported.labelprop import LabelPropVOS_CRW
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from sklearn.metrics import classification_report, confusion_matrix
-import torch
 import argparse
 import time
 manual_seed(11)
@@ -17,7 +17,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('CRW Test', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(16,16), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
@@ -43,12 +43,12 @@ def main(args):
 
     # Model
     dev = device('cuda' if is_available() else 'cpu')
-    model = create_model(args.model, args.pos_embed)
-    model.to(dev)
+    encoder = create_model(args.model, args.pos_embed)
+    encoder.to(dev)
     num_devices = device_count()
     if num_devices >= 2:
-        model = DataParallel(model)
-    model.load_state_dict(load(args.model_path))
+        encoder = DataParallel(encoder)
+    encoder.load_state_dict(load(args.model_path))
 
     # Dataset and reference
     dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap, flip=args.flip)
@@ -79,7 +79,7 @@ def main(args):
     for t in range(tot_rg):
         print('Radargram',t)
         seq = dataset[t].to('cuda')
-        final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = False)
+        final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
         final_prediction = up(final_prediction[None]).squeeze()
         plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
         seg_list.append(final_prediction)
@@ -97,7 +97,7 @@ def main(args):
         for t in range(tot_rg):
             print('Radargram',t)
             seq = dataset[t].to('cuda')
-            final_prediction = propagate(seq, t, seg, model, lp, nclasses, rg_len, args.pos_embed, use_last = True)
+            final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = True)
             final_prediction = up(final_prediction[None]).squeeze()
             plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
             seg_list.append(final_prediction)
