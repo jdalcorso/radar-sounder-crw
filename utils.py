@@ -1,5 +1,5 @@
 from torch import load, arange, cat, argmax
-from model import CNN, Resnet
+from encoder import CNN, Resnet
 from dataset import MCORDS1Dataset, MiguelDataset
 import matplotlib.pyplot as plt
 import torch

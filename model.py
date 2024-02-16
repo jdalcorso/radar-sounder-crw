@@ -1,85 +1,47 @@
 import torch.nn as nn
-from torchvision.models import resnet18
-    
-class CNN(nn.Module):
-    def __init__(self, pos_embed):
-        super(CNN, self).__init__()
+from torch import einsum, cat, flip, eye, bmm, permute, zeros
+from torch.nn.functional import normalize, softmax, cross_entropy
+from utils import pos_embed
 
-        # Layer 1: Initial layer with a 5x5 filter
-        if pos_embed:
-            self.conv1 = nn.Conv2d(2, 8, kernel_size=5, padding=1, padding_mode='reflect')
-        else:
-            self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1, padding_mode='reflect')
-        self.relu1 = nn.ReLU()
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=1)
+class CRW(nn.Module):
+    def __init__(self, encoder, tau, pos_embed):
+        super(CRW, self).__init__()
+        self.encoder = encoder
+        self.tau = tau
+        self.pos_embed = pos_embed
         
-        # Layer 2: Additional layer with an 5x5 filter
-        self.conv2 = nn.Conv2d(8, 32, kernel_size=5, padding=1, padding_mode='reflect')
-        self.relu2 = nn.ReLU()
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=1)
+
+    def forward(self, seq):
+        B, T, N, H, W = seq.shape   
+        seq = seq.view(-1, H, W).unsqueeze(1) # BT x 1 x H x W
+        if self.pos_embed:
+            seq = pos_embed(seq)
+        emb = self.encoder(seq).view(B, T, N, -1)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
+        emb = normalize(emb, dim = -1) # L2 normalisation: now emb has L2norm=1 on C dimension
+        emb = permute(emb, [0, 3, 1, 2])                                # B x C x T x N
+
+        # Transition from t to t+1. We do a matrix product on the C dimension (i.e. computing cosine similarities)
+        A = einsum('bctn,bctm->btnm', emb[:,:,:-1], emb[:,:,1:])/self.tau     # B x T-1 x N x N
+        # TODO: set to zero except diagonals
+        #mask = (diag(ones(N)) + diag(ones(N-1),1) + diag(ones(N-1),-1)).unsqueeze(0).unsqueeze(0).repeat(B,T-1,1,1).cuda()
+        #A = mask * A
+        #if batch == 0:
+        #    show_A(A)
         
-        # Layer 3: Intermediate layers with 3x3 filters
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1, padding_mode='reflect')
-        self.relu3 = nn.ReLU()
-        
-        # Layer 4: Another layer with 3x3 filter and adjusted stride
-        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, padding=1, padding_mode='reflect')
-        self.relu4 = nn.ReLU()
-        
-        # Layer 5: Final conv with 3x3 filter
-        self.conv5 = nn.Conv2d(128, 128, kernel_size=3, padding=1, padding_mode='reflect')
-        self.relu5 = nn.ReLU()
+        # Transition energies for palindrome graphs. Sum of rows is STILL not 1. We dont have probabilities yet, we have cosine similarities
+        AA = cat((A, flip(A,dims = [1]).transpose(-1,-2)), dim = 1)   # B x 2*T-2 x N x N
+        #AA[rand([B, 2*T-2, N, N])< 0.2] = -1e10    # Edge Dropout (worsen performance)
+        loss = 0
 
-        # Layer 6: Final layer to linearize output
-        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(128, 128)
-
-        num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print(f"Number of trainable parameters: {num_params}")
-
-    def forward(self, x):
-        # Forward pass through the layers
-        x = self.pool1(self.relu1(self.conv1(x)))
-        x = self.pool2(self.relu2(self.conv2(x)))
-
-        x = self.relu3(self.conv3(x))
-        x = self.relu4(self.conv4(x))
-        x = self.relu5(self.conv5(x))
-
-        x = self.global_avg_pool(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-        return x
-
-
-
-
-
-class Resnet(nn.Module):
-    def __init__(self, pos_embed):
-        super(Resnet, self).__init__()
-        # 1-2 channels -> 3 channels
-        if pos_embed:
-            self.fc0 = nn.Conv2d(2, 3, kernel_size=3, padding=1, padding_mode='reflect')# To get 3 channels
-        else:
-            self.fc0 = nn.Conv2d(1, 3, kernel_size=3, padding=1, padding_mode='reflect')# To get 3 channels
-        self.bn0 = nn.BatchNorm2d(3)
-        self.relu0 = nn.ReLU(inplace=True)
-
-        # resnet18 encoder
-        self.model = resnet18()
-        self.model = nn.Sequential(*list(self.model.children())[:-1])
-        self.model[0].kernel_size = (3,3)
-        self.model[0].padding = (1,1)
-
-        # final linear layers
-        self.final = nn.Sequential(*[nn.Linear(512,256), nn.ReLU(), nn.Linear(256,128), nn.ReLU()])
-
-        num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print(f"Number of trainable parameters: {num_params}")
-
-    def forward(self, x):
-        x = self.relu0(self.bn0(self.fc0(x)))
-        x = self.model(x)
-        x = self.final(x.squeeze())
-        return x
+        for k in range(1,T-1):
+            At = zeros(1,N,N, device = 'cuda')
+            At[0,:,:] = eye(N)
+            At = At.repeat([B,1,1]) # now At is B identity matrices stacked
+            I = At
+            #Do walk
+            AA_this = cat([AA[:,:k],AA[:,-k:]], dim=1)
+            for t in range(1,2*k):
+                current = AA_this[:,t] #+ eye(N, device = 'cuda').unsqueeze(0).repeat([B,1,1]) * args.diag_factor
+                At = bmm(softmax(current, dim = -1), At)
+            loss += cross_entropy(input = At, target = I)
+        return loss
