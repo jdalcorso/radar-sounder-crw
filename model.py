@@ -4,11 +4,12 @@ from torch.nn.functional import normalize, softmax, cross_entropy
 from utils import pos_embed
 
 class CRW(nn.Module):
-    def __init__(self, encoder, tau, pos_embed):
+    def __init__(self, encoder, tau, pos_embed, only_a = False):
         super(CRW, self).__init__()
         self.encoder = encoder
         self.tau = tau
         self.pos_embed = pos_embed
+        self.only_a = only_a
         
 
     def forward(self, seq):
@@ -22,6 +23,8 @@ class CRW(nn.Module):
 
         # Transition from t to t+1. We do a matrix product on the C dimension (i.e. computing cosine similarities)
         A = einsum('bctn,bctm->btnm', emb[:,:,:-1], emb[:,:,1:])/self.tau     # B x T-1 x N x N
+        if self.only_a:
+            return A
         # TODO: set to zero except diagonals
         #mask = (diag(ones(N)) + diag(ones(N-1),1) + diag(ones(N-1),-1)).unsqueeze(0).unsqueeze(0).repeat(B,T-1,1,1).cuda()
         #A = mask * A

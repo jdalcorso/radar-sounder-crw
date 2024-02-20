@@ -135,3 +135,14 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
         final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
     
     return final_prediction
+
+def ndiag_matrix(size, n = 1):
+    # Create a zero tensor with the desired size (n <= 2 is id, n = 3 is tri, n = 4 is penta)
+    matrix = torch.zeros(size, size)
+    matrix.diagonal(offset=0).fill_(1)
+    for i in range(0,n-1):
+        matrix.diagonal(offset=i).fill_(1)
+        matrix.diagonal(offset=-i).fill_(1)
+    matrix = matrix/matrix.sum(dim=1).unsqueeze(0).transpose(0,1)
+    return matrix
+    return matrix
