@@ -1,5 +1,7 @@
+import os
 import torch.nn as nn
 from torchvision.models import resnet18
+os.environ['TORCH_HOME'] = 'crw/imported'    
     
 class CNN(nn.Module):
     def __init__(self, pos_embed):
@@ -56,7 +58,7 @@ class CNN(nn.Module):
 
 
 class Resnet(nn.Module):
-    def __init__(self, pos_embed):
+    def __init__(self, pos_embed = True, pretrained = False):
         super(Resnet, self).__init__()
         # 1-2 channels -> 3 channels
         if pos_embed:
@@ -67,7 +69,7 @@ class Resnet(nn.Module):
         self.relu0 = nn.ReLU(inplace=True)
 
         # resnet18 encoder
-        self.model = resnet18()
+        self.model = resnet18(pretrained = pretrained)
         self.model = nn.Sequential(*list(self.model.children())[:-1])
         self.model[0].kernel_size = (3,3)
         self.model[0].padding = (1,1)
