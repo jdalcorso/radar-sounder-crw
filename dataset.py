@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset 
 
 class MCORDS1Dataset(Dataset):
-    def __init__(self, filepath ='/data/MCoRDS1_2010_DC8/RG_MCoRDS1_2010_DC8.pt', length = 10, dim = (24,24), overlap = (0,0), flip = False):
-        self.filepath = filepath # 410 x 27350
+    def __init__(self, filepath ='/data/MCoRDS1_2010_DC8/RG2_MCoRDS1_2010_DC8.pt', length = 10, dim = (24,24), overlap = (0,0), flip = False):
+        self.filepath = filepath # 410 x 27330
         self.items = []
         l = length
         T = torch.load(filepath)
+        print(T.shape)
         if flip:
             T = torch.flip(input = T, dims = (1,))
         H, W = T.shape

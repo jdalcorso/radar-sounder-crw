@@ -11,12 +11,12 @@ def get_args_parser():
     parser = argparse.ArgumentParser('CRW Heatmap', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
-    parser.add_argument('--model_path', default = './crw/latest.pt')
+    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--model_path', default = './crw/latest2.pt')
     # Data
-    parser.add_argument('--patch_size', default=(16,16), type=int)
+    parser.add_argument('--patch_size', default=(32,32), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
-    parser.add_argument('--overlap', default=(0,0), type=int)
+    parser.add_argument('--overlap', default=(16,0), type=int)
     parser.add_argument('--tau', default = 0.1, type = int)
     parser.add_argument('--pos_embed', default = True, type = bool)
     return parser

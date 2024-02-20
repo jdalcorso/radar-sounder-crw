@@ -19,14 +19,14 @@ def get_args_parser():
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
     parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
-    parser.add_argument('--patch_size', default=(16,16), type=int)
+    parser.add_argument('--patch_size', default=(32,32), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
-    parser.add_argument('--overlap', default=(8,0), type=int) # Should not be changed
+    parser.add_argument('--overlap', default=(31,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=80, type=int) # 10 - 4 - 0.01 - 10 works with CNN()
-    parser.add_argument('-r','--radius', default=25, type=int)
+    parser.add_argument('-c','--cxt_size', default=80, type=int) # 80-25-0.01-30 works with MiguelDS
+    parser.add_argument('-r','--radius', default=32, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=float)
-    parser.add_argument('-k','--knn', default=30, type=int)
+    parser.add_argument('-k','--knn', default=10, type=int)
     # Paths
     parser.add_argument('--model_path', default = './crw/latest.pt')
     # Dev
