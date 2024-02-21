@@ -1,6 +1,7 @@
 from torch import load, arange, cat, argmax
+from torch.utils.data import Subset
 from encoder import CNN, Resnet
-from dataset import MCORDS1Dataset, MiguelDataset
+from dataset import RGDataset
 import matplotlib.pyplot as plt
 import torch
 from torchvision import transforms
@@ -13,12 +14,20 @@ def create_model(id, pos_embed):
     if id == 1:
         return Resnet(pos_embed)
     
-def create_dataset(id, length, dim, overlap, flip = False):
+def create_dataset(id, length, dim, overlap, full = False, flip = False):
     if id == 0:
-        return MCORDS1Dataset(length = length, dim = dim, overlap = overlap, flip = flip)
+        ds = RGDataset(filepath ='/data/MCoRDS1_2010_DC8/RG2_MCoRDS1_2010_DC8.pt', length = length, dim = dim, overlap = overlap, flip = flip)
     if id == 1:
-        return MiguelDataset(length = length, dim = dim, overlap = overlap, flip = flip)
-    
+        ds = RGDataset(filepath = 'datasets/MCORDS1_Miguel/rg2.pt', length = length, dim = dim, overlap = overlap, flip = flip)
+    if full:
+        return ds
+    else:
+        non_overlapping_idx = range(0,len(ds), length)
+        print('Non-Overlapping dataset! Number of items is the above divided by the length of the sequence...')
+        return Subset(ds, non_overlapping_idx)
+
+
+
 def get_reference(id,h,w, flip = False):
     # Returns number of classes and reference initial segmentation
     # w = 0 -> return the whole dataset 
@@ -97,7 +106,7 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     if use_last: seq = torch.flip(seq,(0,))
 
     # Obtain embeddings and reference mask
-    seq = seq.view(-1, H, W).unsqueeze(1)
+    seq = seq.reshape(-1, H, W).unsqueeze(1)
     if do_pos_embed:
         seq = pos_embed(seq)
     emb = model(seq).view(T,N,-1)

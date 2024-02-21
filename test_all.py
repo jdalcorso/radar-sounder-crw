@@ -20,7 +20,7 @@ def get_args_parser():
     parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
-    parser.add_argument('--seq_length', default=80, type=int)
+    parser.add_argument('--seq_length', default=20, type=int)
     parser.add_argument('--overlap', default=(31,0), type=int) # Should not be changed
     # Label propagation cfg
     parser.add_argument('-c','--cxt_size', default=80, type=int) # 80-25-0.01-30 works with MiguelDS
@@ -34,6 +34,7 @@ def get_args_parser():
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
     parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
+    parser.add_argument('--dataset_full',default = False) # Should stay false for test
     return parser
 
 
@@ -51,7 +52,7 @@ def main(args):
     encoder.load_state_dict(load(args.model_path))
 
     # Dataset and reference
-    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap, flip=args.flip)
+    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap, full = args.dataset_full, flip=args.flip)
     dummy = dataset[0].to('cuda') # dummy
     T, N, H, W = dummy.shape
     nclasses, seg = get_reference(id = args.dataset, h = N*H, w = 0, flip=args.flip)
@@ -76,7 +77,12 @@ def main(args):
 
     # Compute segmentation for each radargram
     seg_list = []
-    for t in range(tot_rg):
+    if args.dataset_full:
+        rg_idx_list = range(len(dataset),args.seq_length)
+    else:
+        rg_idx_list = range(tot_rg)
+
+    for t in rg_idx_list:
         print('Radargram',t)
         seq = dataset[t].to('cuda')
         final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
@@ -94,7 +100,7 @@ def main(args):
         seg = seg.unfold(dimension = 1, size = rg_len, step = rg_len)
         seg = flip(seg, (-1,)).view(seg.shape[0],-1)
         seg_list = []
-        for t in range(tot_rg):
+        for t in rg_idx_list:
             print('Radargram',t)
             seq = dataset[t].to('cuda')
             final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = True)

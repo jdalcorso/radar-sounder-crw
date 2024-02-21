@@ -18,14 +18,15 @@ def get_args_parser():
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
     parser.add_argument('--seq_length', default=4, type=int)
-    parser.add_argument('--overlap', default=(31,0), type=int)
+    parser.add_argument('--overlap', default=(16,0), type=int)
     # Train
-    parser.add_argument('--batch_size', default = 128, type=int)
+    parser.add_argument('--batch_size', default = 32, type=int)
     parser.add_argument('--epochs', default = 50, type = int)
     parser.add_argument('--lr', default = 1E-3, type = int)
     parser.add_argument('--tau', default = 0.01, type = int)
     # Dev
     parser.add_argument('--pos_embed', default = True, type = bool)
+    parser.add_argument('--dataset_full', default = False) # Lead to memory fault
     return parser
 
 def main(args):
@@ -39,7 +40,7 @@ def main(args):
     model = model.to('cuda')
 
     # Dataset
-    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
+    dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, full = args.dataset_full, overlap = args.overlap)
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
     # Hyperparameters

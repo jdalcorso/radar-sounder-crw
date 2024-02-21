@@ -2,101 +2,49 @@ import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset 
 
-class MCORDS1Dataset(Dataset):
+class RGDataset(Dataset):
     def __init__(self, filepath ='/data/MCoRDS1_2010_DC8/RG2_MCoRDS1_2010_DC8.pt', length = 10, dim = (24,24), overlap = (0,0), flip = False):
         self.filepath = filepath # 410 x 27330
-        self.items = []
-        l = length
-        T = torch.load(filepath)
-        print(T.shape)
+        self.l = length
+        self.T = torch.load(filepath)
         if flip:
-            T = torch.flip(input = T, dims = (1,))
-        H, W = T.shape
-        h, w = dim[0], dim[1]
-        oh,ow = overlap[0], overlap[1]
-        nh, nw = H//(h - oh)-(oh//(h-oh)), W//(w- ow)-(ow//(w-ow))
-        columns = []
-        # Create columns of overlapping patches
-        for i in range(nw):
-            column  = torch.zeros(nh, h, w)
-            for j in range(nh):
-                column[j,:,:] = T[j*(h-oh):j*(h-oh)+h, i*(w-ow):i*(w-ow)+w]
-            columns.append(column)
-
-        # Create items of the dataset as sequences of dim TxNxhxw
-        len_dataset = len(columns)//length
-        for i in range(len_dataset):
-            self.items.append(torch.stack(columns[i*l:i*l+l], dim = 0))
-        #for i in range(len(columns)-l):
-        #    self.items.append(torch.stack(columns[i:i+l], dim = 0))
-
-        print('Total items:', len(self.items), ', Dim items:', self.items[0].shape)
+            self.T = torch.flip(input = self.T, dims = (1,))
+        H, W = self.T.shape
+        h, w = dim
+        oh, ow = overlap
+        self.nh = (H - oh)//(h - oh) # Formula is: floor((L-l)/(l-o))+1
+        self.nw = (W - w*(self.l-1))//w
+        #self.nh = torch.floor(torch.tensor((H-h)/(h-oh))).long() + 1
+        #self.nw = torch.floor(torch.tensor((W-self.l*w)/(self.l*w - w*(self.l-1)))).long() + 1
+        self.oh, self.ow = oh, ow
+        self.h, self.w = h,w
+        self.pxh = self.nh * h - oh*(self.nh-1)
+        self.pxw = self.l * w - ow*(self.l-1)
+        print('Total items:', self.nw)
 
     def __len__(self):
-        return len(self.items)
+        return self.nw
 
     def __getitem__(self,index):
-        return self.items[index].float()
+        item = self.T[:self.pxh,self.w*index:self.w*index+self.pxw]
+        item = item.unfold(dimension = 0, size = self.h, step= self.h-self.oh)
+        item = item.unfold(dimension = 1, size = self.w, step= self.w-self.ow)
+        item = torch.permute(item, [1,0,2,3])
+        return item.float()
 
-class MiguelDataset(Dataset):
-    def __init__(self, filepath ='datasets/MCORDS1_Miguel/rg2.pt', length = 10, dim = (48,48), overlap = (0,0), flip = False):
-        self.filepath = filepath # 1536 x 105120
-        self.items = []
-        l = length
-        T = torch.load(filepath)
-        if flip:
-            T = torch.flip(input = T, dims = (1,))
-        H, W = T.shape
-        h, w = dim[0], dim[1]
-        oh,ow = overlap[0], overlap[1]
-        nh, nw = H//(h - oh)-(oh//(h-oh)), W//(w- ow)-(ow//(w-ow))
-        columns = []
-
-        # Create columns of overlapping patches
-        for i in range(nw):
-            column  = torch.zeros(nh, h, w)
-            for j in range(nh):
-                column[j,:,:] = T[j*(h-oh):j*(h-oh)+h, i*(w-ow):i*(w-ow)+w]
-            columns.append(column)
-
-        # Create items of the dataset as sequences of dim TxNxhxw
-        len_dataset = len(columns)//length
-        for i in range(len_dataset):
-            self.items.append(torch.stack(columns[i*l:i*l+l], dim = 0))
-        #for i in range(len(columns)-l):
-        #    self.items.append(torch.stack(columns[i:i+l], dim = 0))
-
-        print('Total items:', len(self.items), ', Dim items:', self.items[0].shape)
-
-    def __len__(self):
-        return len(self.items)
-
-    def __getitem__(self,index):
-        return self.items[index].float()
 
 if __name__ == '__main__':
-    ds = MCORDS1Dataset(length = 10, dim = (24,24), overlap = (12,12))
-    print('Shape', ds[1].shape)
-
-    # Assuming you have a tensor with shape (T, N, H, W)
-    T, N, H, W = ds[1].shape
-    images = ds[1]
-
-    # Plotting all TxN images in a grid
+    ds = RGDataset(filepath = 'datasets/MCORDS1_Miguel/rg2.pt', length = 4, dim = (32,32), overlap = (0,0))
+    T, N, H, W = ds[0].shape
+    images = ds[0]
     fig, axes = plt.subplots(N, T, figsize = (13,13))
-
     for t in range(T):
         for n in range(N):
-            # Get the image at time step t and node n
             image = images[t, n].cpu().numpy()
-
-            # Display the image in the corresponding subplot
-            axes[n, t].imshow(image, cmap='gray')  # Assuming grayscale images
-            axes[n, t].axis('off')  # Turn off axis labels for clarity
-
+            axes[n, t].imshow(image, cmap='gray')
+            axes[n, t].axis('off')
     plt.tight_layout()
-
     plt.show()
-    plt.tight_layout()
     plt.savefig('grid.png')
     plt.close()
+    print('Main done.')
