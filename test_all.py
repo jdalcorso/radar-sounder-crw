@@ -1,7 +1,7 @@
 
 from torch.cuda import device_count, is_available
 from torch.nn import DataParallel
-from torch import load, manual_seed, cat, logical_and, flip, device
+from torch import load, manual_seed, cat, logical_and, flip, device, save
 from utils import create_dataset, create_model, get_reference, propagate, plot
 from model import CRW
 from imported.labelprop import LabelPropVOS_CRW
@@ -34,7 +34,7 @@ def get_args_parser():
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
     parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
-    parser.add_argument('--dataset_full',default = False) # Should stay false for test
+    parser.add_argument('--dataset_full',default = False)
     return parser
 
 
@@ -55,7 +55,7 @@ def main(args):
     dataset = create_dataset(id = args.dataset, length = args.seq_length, dim = args.patch_size, overlap = args.overlap, full = args.dataset_full, flip=args.flip)
     dummy = dataset[0].to('cuda') # dummy
     T, N, H, W = dummy.shape
-    nclasses, seg = get_reference(id = args.dataset, h = N*H, w = 0, flip=args.flip)
+    nclasses, seg = get_reference(id = args.dataset, h = N*H, w = 0, flip=args.flip, length = args.seq_length, dim = args.patch_size, overlap = args.overlap)
 
     # Label propagation method
     cfg = {
@@ -77,18 +77,22 @@ def main(args):
 
     # Compute segmentation for each radargram
     seg_list = []
+    xent_list = []
     if args.dataset_full:
-        rg_idx_list = range(len(dataset),args.seq_length)
+        rg_idx_list = range(0,len(dataset),args.seq_length)
     else:
         rg_idx_list = range(tot_rg)
 
-    for t in rg_idx_list:
+    for t in range(len(rg_idx_list)):
         print('Radargram',t)
-        seq = dataset[t].to('cuda')
-        final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
+        seq = dataset[rg_idx_list[t]].to('cuda')
+        final_prediction, xent = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
         final_prediction = up(final_prediction[None]).squeeze()
         plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
         seg_list.append(final_prediction)
+        xent_list.append(xent)
+    xent = cat(xent_list, dim = -1)
+    save(xent, 'xent.pt')
 
     # Concat seg_list to match the dimension of the full ground truth segmentation
     final_pred = cat(seg_list, dim = 1).flatten()
@@ -100,10 +104,10 @@ def main(args):
         seg = seg.unfold(dimension = 1, size = rg_len, step = rg_len)
         seg = flip(seg, (-1,)).view(seg.shape[0],-1)
         seg_list = []
-        for t in rg_idx_list:
+        for t in range(len(rg_idx_list)):
             print('Radargram',t)
-            seq = dataset[t].to('cuda')
-            final_prediction = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = True)
+            seq = dataset[rg_idx_list[t]].to('cuda')
+            final_prediction, _ = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = True)
             final_prediction = up(final_prediction[None]).squeeze()
             plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
             seg_list.append(final_prediction)
@@ -132,7 +136,6 @@ def main(args):
         gt = gt_seg
         pred = final_pred
 
-    print(gt.unique(),pred.unique())
     # Compute reports
     print('Computing reports ...')
     print('')

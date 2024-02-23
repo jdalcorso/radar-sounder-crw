@@ -1,12 +1,12 @@
-from torch import load, arange, cat, argmax
+from torch import load, arange, cat, argmax, einsum
 from torch.utils.data import Subset
 from encoder import CNN, Resnet
-from dataset import RGDataset
+from dataset import RGDataset, trim_miguel
 import matplotlib.pyplot as plt
 import torch
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from torch.nn.functional import softmax, normalize
+from torch.nn.functional import softmax, normalize, cross_entropy
 
 def create_model(id, pos_embed):
     if id == 0:
@@ -28,7 +28,7 @@ def create_dataset(id, length, dim, overlap, full = False, flip = False):
 
 
 
-def get_reference(id,h,w, flip = False):
+def get_reference(id,h,w, flip = False, length = None, dim = None, overlap = None):
     # Returns number of classes and reference initial segmentation
     # w = 0 -> return the whole dataset 
     if id == 0:
@@ -37,6 +37,7 @@ def get_reference(id,h,w, flip = False):
     # GT only for the first radargram
     if id == 1:
         data = load('./datasets/MCORDS1_Miguel/seg2.pt')
+        data = trim_miguel(data, length, dim)
         nclasses = 6
     # Same as id==0 but with uncertain class
     if id == 2:
@@ -90,6 +91,7 @@ def plot(img, save = None, seg = None):
             plt.savefig(save)
         plt.close()
 
+@torch.no_grad()
 def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     '''
     seq:        sequence of shape T, N, H, W
@@ -111,6 +113,17 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
         seq = pos_embed(seq)
     emb = model(seq).view(T,N,-1)
     emb = normalize(emb, dim = -1) # L2
+
+    # Compute horizontality metric
+    A = einsum('tnc,tmc->tnm', emb[:,:,:-1], emb[:,:,1:])/0.1
+    I = ndiag_matrix(N, 3).cuda()
+    xent = torch.zeros(N,T-1, requires_grad = False)
+    for i in range(T-1):
+        At = A[i,:,:]
+        xent[:,i] = (cross_entropy(input = At, target = I, reduction='none'))
+    xent = xent.mean(dim = 0).cpu()
+    #xent = rolling_variance(xent, window_size = 20)
+
 
     feats = []
     masks = []
@@ -142,8 +155,7 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
 
         # Add new mask (no more one-hot) to the final prediction
         final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
-    
-    return final_prediction
+    return final_prediction, xent
 
 def ndiag_matrix(size, n = 1):
     # Create a zero tensor with the desired size (n <= 2 is id, n = 3 is tri, n = 4 is penta)
@@ -154,4 +166,12 @@ def ndiag_matrix(size, n = 1):
         matrix.diagonal(offset=-i).fill_(1)
     matrix = matrix/matrix.sum(dim=1).unsqueeze(0).transpose(0,1)
     return matrix
-    return matrix
+
+def rolling_variance(image, window_size):
+    #unfolded = torch.nn.functional.unfold(image.unsqueeze(0), kernel_size=(1, window_size), stride=(1, 1))
+    unfolded = image.unfold(dimension = -1, size = window_size, step = 1)
+    unfolded = torch.permute(unfolded, [0, 2, 1])
+    mean = torch.mean(unfolded, dim = (0,1), keepdim=True)
+    squared_diff = (unfolded - mean)**2
+    variance = torch.mean(squared_diff, dim = (0,1))
+    return variance

@@ -26,7 +26,7 @@ def get_args_parser():
     parser.add_argument('--tau', default = 0.01, type = int)
     # Dev
     parser.add_argument('--pos_embed', default = True, type = bool)
-    parser.add_argument('--dataset_full', default = False) # Lead to memory fault
+    parser.add_argument('--dataset_full', default = False)
     return parser
 
 def main(args):

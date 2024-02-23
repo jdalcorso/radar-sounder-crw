@@ -7,8 +7,15 @@ class RGDataset(Dataset):
         self.filepath = filepath # 410 x 27330
         self.l = length
         self.T = torch.load(filepath)
+
+        # Trim Miguel dataset
+        if filepath.endswith('rg2.pt'):
+            self.T = trim_miguel(self.T, length, dim)
+            print('Trimmed Dataset to match radargram sizes!')
+
         if flip:
             self.T = torch.flip(input = self.T, dims = (1,))
+
         H, W = self.T.shape
         h, w = dim
         oh, ow = overlap
@@ -48,3 +55,19 @@ if __name__ == '__main__':
     plt.savefig('grid.png')
     plt.close()
     print('Main done.')
+
+def trim_miguel(T, length, dim):
+    splits = torch.tensor([9984, 6656, 9984, 20000, 16640, 32864, 8992])
+    splits_cum = torch.cumsum(splits, dim = 0)
+    new_T = []
+    for i in range(splits.shape[0]):
+        # check length of radargram
+        idx_start = 0 if i == 0 else splits_cum[i-1]
+        L = splits[i]
+        nrgs = torch.floor(L/(dim[1]*length)).long()
+        effective_length = nrgs * (dim[1]*length)
+        slice_of_T = T[:,idx_start:idx_start+effective_length]
+        
+        new_T.append(slice_of_T)
+    T = torch.cat(new_T, dim = 1)
+    return T
