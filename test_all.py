@@ -20,7 +20,7 @@ def get_args_parser():
     parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
-    parser.add_argument('--seq_length', default=20, type=int)
+    parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(31,0), type=int) # Should not be changed
     # Label propagation cfg
     parser.add_argument('-c','--cxt_size', default=80, type=int) # 80-25-0.01-30 works with MiguelDS
@@ -67,12 +67,11 @@ def main(args):
     lp = LabelPropVOS_CRW(cfg)
 
     # Compute the number of total radargrams (with first sample)
-    rg_len = ((args.seq_length - 1) * (args.patch_size[-1] - args.overlap[-1]) + args.patch_size[-1]) # in pixels
+    rg_len = args.seq_length*(args.patch_size[-1]-args.overlap[-1])+args.overlap[-1]
     tot_rg = seg.shape[-1]//rg_len
     print('Num of radargrams:',tot_rg,'Radargram length:', rg_len)
 
     seg = seg[:,:tot_rg*rg_len]
-
     up = transforms.Resize((seg.shape[0],rg_len), interpolation = InterpolationMode.NEAREST)
 
     # Compute segmentation for each radargram
@@ -82,13 +81,15 @@ def main(args):
         rg_idx_list = range(0,len(dataset),args.seq_length)
     else:
         rg_idx_list = range(tot_rg)
+    print('List of items picked from the dataset:',list(rg_idx_list))
 
     for t in range(len(rg_idx_list)):
         print('Radargram',t)
         seq = dataset[rg_idx_list[t]].to('cuda')
-        final_prediction, xent = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = False)
+        seg_ref = seg[:,rg_len * t:rg_len * t + W]
+        final_prediction, xent = propagate(seq, seg_ref, encoder, lp, nclasses, args.pos_embed, use_last = False)
         final_prediction = up(final_prediction[None]).squeeze()
-        plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
+        plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len])
         seg_list.append(final_prediction)
         xent_list.append(xent)
     xent = cat(xent_list, dim = -1)
@@ -107,9 +108,10 @@ def main(args):
         for t in range(len(rg_idx_list)):
             print('Radargram',t)
             seq = dataset[rg_idx_list[t]].to('cuda')
-            final_prediction, _ = propagate(seq, t, seg, encoder, lp, nclasses, rg_len, args.pos_embed, use_last = True)
+            seg_ref = seg[:,rg_len * t:rg_len * t + W]
+            final_prediction, _ = propagate(seq,  seg_ref, encoder, lp, nclasses, args.pos_embed, use_last = True)
             final_prediction = up(final_prediction[None]).squeeze()
-            plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + W*args.seq_length])
+            plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len])
             seg_list.append(final_prediction)
 
         pred_seg_rev = cat(seg_list, dim = 1).unfold(dimension = 1, size = rg_len, step = rg_len)

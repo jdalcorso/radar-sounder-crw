@@ -92,7 +92,7 @@ def plot(img, save = None, seg = None):
         plt.close()
 
 @torch.no_grad()
-def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
+def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     '''
     seq:        sequence of shape T, N, H, W
     t:          number of cycle within the seg (i.e. number of radargram)
@@ -129,9 +129,6 @@ def propagate(seq, t, seg, model, lp, nclasses, rg_len, do_pos_embed, use_last):
     masks = []
 
     final_prediction = torch.zeros(N,T, device = 'cuda')
-
-    # Add reference mask and features
-    seg_ref = seg[:,rg_len * t:rg_len * t + W]
 
     down = transforms.Resize((N,1), interpolation = InterpolationMode.NEAREST)
 

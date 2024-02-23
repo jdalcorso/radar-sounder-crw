@@ -19,21 +19,20 @@ class RGDataset(Dataset):
         H, W = self.T.shape
         h, w = dim
         oh, ow = overlap
-        self.nh = (H - oh)//(h - oh) # Formula is: floor((L-l)/(l-o))+1
-        self.nw = (W - w*(self.l-1))//w
-        #self.nh = torch.floor(torch.tensor((H-h)/(h-oh))).long() + 1
-        #self.nw = torch.floor(torch.tensor((W-self.l*w)/(self.l*w - w*(self.l-1)))).long() + 1
+        self.nh = (H - oh)//(h - oh) # Formula is: N = (L-l)//(l-o)+1
+        l = (self.l*(w-ow)+ow) # = self.pxw
+        self.nw = (W - l)//(w-ow) + 1
         self.oh, self.ow = oh, ow
         self.h, self.w = h,w
         self.pxh = self.nh * h - oh*(self.nh-1)
         self.pxw = self.l * w - ow*(self.l-1)
-        print('Total items:', self.nw)
+        print('Total items:', self.nw, 'Length of item in pixels:', self.pxw)
 
     def __len__(self):
         return self.nw
 
     def __getitem__(self,index):
-        item = self.T[:self.pxh,self.w*index:self.w*index+self.pxw]
+        item = self.T[:self.pxh,(self.w-self.ow)*index:(self.w-self.ow)*index+self.pxw]
         item = item.unfold(dimension = 0, size = self.h, step= self.h-self.oh)
         item = item.unfold(dimension = 1, size = self.w, step= self.w-self.ow)
         item = torch.permute(item, [1,0,2,3])
