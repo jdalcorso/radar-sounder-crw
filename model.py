@@ -1,7 +1,8 @@
 import torch.nn as nn
 from torch import einsum, cat, flip, eye, bmm, permute, zeros
 from torch.nn.functional import normalize, softmax, cross_entropy
-from utils import pos_embed
+from utils import pos_embed, plot_kmeans
+from sklearn.cluster import KMeans
 
 class CRW(nn.Module):
     def __init__(self, encoder, tau, pos_embed, only_a = False):
@@ -17,19 +18,16 @@ class CRW(nn.Module):
         seq = seq.reshape(-1, H, W).unsqueeze(1) # BT x 1 x H x W
         if self.pos_embed:
             seq = pos_embed(seq)
-        emb = self.encoder(seq).reshape(B, T, N, -1)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
+        emb = self.encoder(seq)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
+        emb = emb.reshape(B, T, N, -1)
         emb = normalize(emb, dim = -1) # L2 normalisation: now emb has L2norm=1 on C dimension
+        plot_kmeans(emb,T,N)
         emb = permute(emb, [0, 3, 1, 2])                                # B x C x T x N
 
         # Transition from t to t+1. We do a matrix product on the C dimension (i.e. computing cosine similarities)
         A = einsum('bctn,bctm->btnm', emb[:,:,:-1], emb[:,:,1:])/self.tau     # B x T-1 x N x N
         if self.only_a:
             return A
-        # TODO: set to zero except diagonals
-        #mask = (diag(ones(N)) + diag(ones(N-1),1) + diag(ones(N-1),-1)).unsqueeze(0).unsqueeze(0).repeat(B,T-1,1,1).cuda()
-        #A = mask * A
-        #if batch == 0:
-        #    show_A(A)
         
         # Transition energies for palindrome graphs. Sum of rows is STILL not 1. We dont have probabilities yet, we have cosine similarities
         AA = cat((A, flip(A,dims = [1]).transpose(-1,-2)), dim = 1)   # B x 2*T-2 x N x N

@@ -18,14 +18,14 @@ def get_args_parser():
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
     parser.add_argument('--seq_length', default=8, type=int)
-    parser.add_argument('--overlap', default=(16,0), nargs = '+', type=int)
+    parser.add_argument('--overlap', default=(16,16), nargs = '+', type=int)
     # Train
     parser.add_argument('--batch_size', default = 64, type=int)
-    parser.add_argument('--epochs', default = 20, type = int)
+    parser.add_argument('--epochs', default = 1, type = int)
     parser.add_argument('--lr', default = 1E-3, type = float)
     parser.add_argument('--tau', default = 0.01, type = float)
     # Dev
-    parser.add_argument('--pos_embed', default = True, type = bool)
+    parser.add_argument('--pos_embed', default = False, type = bool)
     parser.add_argument('--dataset_full', default = True)
     return parser
 

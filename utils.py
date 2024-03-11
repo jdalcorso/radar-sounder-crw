@@ -1,7 +1,8 @@
-from torch import load, arange, cat, argmax, einsum
+from torch import load, arange, cat, argmax, einsum, tensor
 from torch.utils.data import Subset
 from encoder import CNN, Resnet
 from dataset import RGDataset, trim_miguel
+from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import torch
 import ruptures as rpt
@@ -158,6 +159,15 @@ def rolling_variance(image, window_size):
     squared_diff = (unfolded - mean)**2
     variance = torch.mean(squared_diff, dim = (0,1))
     return variance
+
+def plot_kmeans(emb, T, N):
+    # show KMeans on features
+    kmeans = KMeans(4, n_init = 'auto')
+    kmeans_fitted = kmeans.fit(emb[0].reshape(-1,128).cpu().detach())
+    plt.imshow(tensor(kmeans_fitted.labels_).view(T,N).transpose(0,1))
+    plt.savefig('./crw/output/_kmeans.png')
+    plt.axis('off')
+    plt.close()
 
 def plot(img, save = None, seg = None):
     if seg is None:
