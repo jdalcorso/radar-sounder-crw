@@ -1,4 +1,4 @@
-from torch import manual_seed, tensor, save
+from torch import manual_seed, tensor, save, cat
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 from torch.cuda import device_count
@@ -17,16 +17,16 @@ def get_args_parser():
     parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
-    parser.add_argument('--seq_length', default=4, type=int)
-    parser.add_argument('--overlap', default=(16,0), type=int)
+    parser.add_argument('--seq_length', default=8, type=int)
+    parser.add_argument('--overlap', default=(16,0), nargs = '+', type=int)
     # Train
-    parser.add_argument('--batch_size', default = 32, type=int)
-    parser.add_argument('--epochs', default = 50, type = int)
-    parser.add_argument('--lr', default = 1E-3, type = int)
-    parser.add_argument('--tau', default = 0.01, type = int)
+    parser.add_argument('--batch_size', default = 64, type=int)
+    parser.add_argument('--epochs', default = 20, type = int)
+    parser.add_argument('--lr', default = 1E-3, type = float)
+    parser.add_argument('--tau', default = 0.01, type = float)
     # Dev
     parser.add_argument('--pos_embed', default = True, type = bool)
-    parser.add_argument('--dataset_full', default = False)
+    parser.add_argument('--dataset_full', default = True)
     return parser
 
 def main(args):
@@ -55,7 +55,7 @@ def main(args):
         loss_epoch = []
         for batch, seq in enumerate(dataloader):
             seq = seq.to('cuda')
-            loss = model(seq)
+            loss, _ = model(seq)
             loss_epoch.append(loss)
             # Optimize
             optimizer.zero_grad()
@@ -63,15 +63,15 @@ def main(args):
             optimizer.step()
         loss_epoch = tensor(loss_epoch).mean()
         loss_tot.append(loss_epoch)
-
         print('Epoch:',epoch,'Loss:',loss_epoch.item(), 'Time:', time.time()-t0)
 
     plt.plot(loss_tot)
-    plt.savefig('./crw/output/a_loss.png')
+    plt.savefig('./crw/output/_loss.png')
     plt.close()
     save(encoder.state_dict(), './crw/latest.pt')
 
 if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
+    args.overlap = tuple(args.overlap)
     main(args)

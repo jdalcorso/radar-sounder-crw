@@ -37,7 +37,14 @@ class RGDataset(Dataset):
         item = item.unfold(dimension = 1, size = self.w, step= self.w-self.ow)
         item = torch.permute(item, [1,0,2,3])
         return item.float()
-
+    
+    def get_smaller_item(self,index,small_length):
+        self.small_pxw = self.pxw = small_length * self.w - self.ow*(small_length-1)
+        item = self.T[:self.pxh,(self.w-self.ow)*index:(self.w-self.ow)*index+self.pxw]
+        item = item.unfold(dimension = 0, size = self.h, step= self.h-self.oh)
+        item = item.unfold(dimension = 1, size = self.w, step= self.w-self.ow)
+        item = torch.permute(item, [1,0,2,3])
+        return item.float()
 
 if __name__ == '__main__':
     ds = RGDataset(filepath = 'datasets/MCORDS1_Miguel/rg2.pt', length = 4, dim = (32,32), overlap = (0,0))

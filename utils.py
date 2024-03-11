@@ -4,9 +4,12 @@ from encoder import CNN, Resnet
 from dataset import RGDataset, trim_miguel
 import matplotlib.pyplot as plt
 import torch
+import ruptures as rpt
+from matplotlib.colors import ListedColormap
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from torch.nn.functional import softmax, normalize, cross_entropy
+import numpy as np
 
 def create_model(id, pos_embed):
     if id == 0:
@@ -71,26 +74,6 @@ def show_A(A):
     plt.savefig('transitions.png')
     plt.close()
 
-def plot(img, save = None, seg = None):
-    if seg is None:
-        plt.imshow(img, interpolation="nearest")
-        plt.tight_layout()
-        plt.axis('off')
-        if save is not None:
-            plt.savefig(save)
-        plt.close()
-    else:
-        plt.subplot(121)
-        plt.imshow(img, interpolation="nearest")
-        plt.axis('off')
-        plt.subplot(122)
-        plt.imshow(seg)
-        plt.axis('off')
-        plt.tight_layout()
-        if save is not None:
-            plt.savefig(save)
-        plt.close()
-
 @torch.no_grad()
 def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     '''
@@ -121,9 +104,12 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     for i in range(T-1):
         At = A[i,:,:]
         xent[:,i] = (cross_entropy(input = At, target = I, reduction='none'))
-    xent = xent.mean(dim = 0).cpu()
-    #xent = rolling_variance(xent, window_size = 20)
-
+    xent = xent.unfold(dimension = 1, step = 1, size = 10).detach()
+    xent = xent.mean(dim=(-1,-2))
+    pelt = rpt.Pelt(model="rbf").fit(xent)
+    result = pelt.predict(pen=10)
+    change_idx = result[0] - 10
+    change_idx = torch.maximum(torch.tensor(0),torch.tensor(change_idx)).item()
 
     feats = []
     masks = []
@@ -152,7 +138,7 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
 
         # Add new mask (no more one-hot) to the final prediction
         final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
-    return final_prediction, xent
+    return final_prediction, xent, change_idx
 
 def ndiag_matrix(size, n = 1):
     # Create a zero tensor with the desired size (n <= 2 is id, n = 3 is tri, n = 4 is penta)
@@ -172,3 +158,43 @@ def rolling_variance(image, window_size):
     squared_diff = (unfolded - mean)**2
     variance = torch.mean(squared_diff, dim = (0,1))
     return variance
+
+def plot(img, save = None, seg = None):
+    if seg is None:
+        plt.imshow(img, interpolation="nearest", cmap = 'gray')
+        plt.tight_layout()
+        plt.axis('off')
+        if save is not None:
+            plt.savefig(save)
+        plt.close()
+    else:
+        plt.figure(figsize = (13,13))
+        plt.subplot(211)
+        fs = 12
+        #colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
+        class_colors = {
+            0: (0,0,0),
+            1: (1,1,1),
+            2: 'red',
+            3: (0.33,0.33,0.33),
+            4: (0.66,0.66,0.66),
+            5: (1,1,1)
+        }
+        cmap = ListedColormap([class_colors[i] for i in range(6)])
+        #cmap = ListedColormap(colors)
+        plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 5)
+        num_ticks = 5
+        new_y_ticks = np.linspace(0, 1256, num_ticks)  # 410 for MCORDS1, 1256 for MCORDS3
+        new_y_labels = [f'{i*0.103:.2f}' for i in range(num_ticks)] # 0.103us is the timestep for MCORDS1       
+        plt.yticks(new_y_ticks, new_y_labels,fontsize = fs)
+        plt.ylabel('Time [μs]',fontsize = fs)
+        plt.xlabel('Trace',fontsize = fs)
+        plt.subplot(212)
+        plt.imshow(seg, cmap = cmap, interpolation="nearest", vmin = 0, vmax = 5)
+        plt.yticks(new_y_ticks, new_y_labels, fontsize = fs)
+        plt.ylabel('Time [μs]',fontsize = fs)
+        plt.xlabel('Trace',fontsize = fs)
+        plt.tight_layout()
+        if save is not None:
+            plt.savefig(save)
+        plt.close()

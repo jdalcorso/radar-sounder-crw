@@ -14,10 +14,10 @@ class CRW(nn.Module):
 
     def forward(self, seq):
         B, T, N, H, W = seq.shape   
-        seq = seq.view(-1, H, W).unsqueeze(1) # BT x 1 x H x W
+        seq = seq.reshape(-1, H, W).unsqueeze(1) # BT x 1 x H x W
         if self.pos_embed:
             seq = pos_embed(seq)
-        emb = self.encoder(seq).view(B, T, N, -1)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
+        emb = self.encoder(seq).reshape(B, T, N, -1)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
         emb = normalize(emb, dim = -1) # L2 normalisation: now emb has L2norm=1 on C dimension
         emb = permute(emb, [0, 3, 1, 2])                                # B x C x T x N
 
@@ -40,11 +40,11 @@ class CRW(nn.Module):
             At = zeros(1,N,N, device = 'cuda')
             At[0,:,:] = eye(N)
             At = At.repeat([B,1,1]) # now At is B identity matrices stacked
-            I = At
+            I = At # softmax(At/0.1,dim=1)
             #Do walk
             AA_this = cat([AA[:,:k],AA[:,-k:]], dim=1)
             for t in range(1,2*k):
                 current = AA_this[:,t] #+ eye(N, device = 'cuda').unsqueeze(0).repeat([B,1,1]) * args.diag_factor
                 At = bmm(softmax(current, dim = -1), At)
             loss += cross_entropy(input = At, target = I)
-        return loss
+        return loss, A

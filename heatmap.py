@@ -6,12 +6,13 @@ from torch import eye, zeros, log, load
 from utils import create_model, create_dataset, plot, ndiag_matrix
 import argparse
 import matplotlib.pyplot as plt
+import ruptures as rpt
 
 def get_args_parser():
     parser = argparse.ArgumentParser('CRW Heatmap', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
     parser.add_argument('--model_path', default = './crw/latest2.pt')
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
@@ -46,15 +47,35 @@ def main(args):
         result[:,t] = (cross_entropy(input = At, target = I, reduction='none'))
     
     plt.figure(figsize = (13,13))
-    plt.subplot(221)
-    plt.imshow(result.detach().cpu())
-    plt.colorbar()
+    plt.subplot(411)
+    plt.imshow(img, cmap = 'gray', aspect = .21)
+
+    plt.subplot(412)
+    plt.imshow(result.detach().cpu(), cmap = 'gray', aspect = .21, interpolation='nearest')
     plt.clim([0,5])
-    plt.subplot(222)
-    plt.imshow(img)
-    plt.colorbar()
-    plt.subplot(223)
-    plt.plot(result.mean(dim=0).detach())
+
+    # Mean of image
+    plt.subplot(413)
+    step = 32
+    size = 160
+    aspect = 59
+    roll = img.unfold(dimension = 1, step = step, size = size).detach()
+    roll = roll.mean(dim=(0,-1))
+    plt.plot(roll,'k')
+    plt.gca().set_aspect(aspect)
+
+    # Mean of metric
+    plt.subplot(414)
+    aspect = 5.28
+    rolling = result.unfold(dimension = 1, step = 1, size = 5).detach()
+    rolling = rolling.mean(dim=(0,-1))
+    plt.plot(rolling,'k')
+    plt.gca().set_aspect(aspect)
+
+    # Print change point
+    algo = rpt.Pelt(model="rbf").fit(rolling)
+    result = algo.predict(pen=10)
+    plt.vlines(result[0],0.5,4.0,'r')
     plt.tight_layout()
     plt.savefig('./crw/_heatmap.png')
     plt.close()
