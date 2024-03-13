@@ -1,16 +1,17 @@
+import matplotlib.pyplot as plt
+import torch
+import numpy as np
+import ruptures as rpt
 from torch import load, arange, cat, argmax, einsum, tensor
 from torch.utils.data import Subset
 from encoder import CNN, Resnet
 from dataset import RGDataset, trim_miguel
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-import torch
-import ruptures as rpt
 from matplotlib.colors import ListedColormap
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from torch.nn.functional import softmax, normalize, cross_entropy
-import numpy as np
+
 
 def create_model(id, pos_embed):
     if id == 0:
@@ -105,7 +106,7 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     for i in range(T-1):
         At = A[i,:,:]
         xent[:,i] = (cross_entropy(input = At, target = I, reduction='none'))
-    xent = xent.unfold(dimension = 1, step = 1, size = 10).detach()
+    xent = xent.unfold(dimension = 1, step = 1, size = 5).detach()
     xent = xent.mean(dim=(-1,-2))
     pelt = rpt.Pelt(model="rbf").fit(xent)
     result = pelt.predict(pen=10)
@@ -165,11 +166,11 @@ def plot_kmeans(emb, T, N):
     kmeans = KMeans(4, n_init = 'auto')
     kmeans_fitted = kmeans.fit(emb[0].reshape(-1,128).cpu().detach())
     plt.imshow(tensor(kmeans_fitted.labels_).view(T,N).transpose(0,1))
-    plt.savefig('./crw/output/_kmeans.png')
+    plt.savefig('/home/jordydalcorso/workspace/crw/output/_kmeans.png')
     plt.axis('off')
     plt.close()
 
-def plot(img, save = None, seg = None):
+def plot(img, save = None, seg = None, dataset = 0):
     if seg is None:
         plt.imshow(img, interpolation="nearest", cmap = 'gray')
         plt.tight_layout()
@@ -181,26 +182,28 @@ def plot(img, save = None, seg = None):
         plt.figure(figsize = (13,13))
         plt.subplot(211)
         fs = 12
-        #colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
-        class_colors = {
-            0: (0,0,0),
-            1: (1,1,1),
-            2: 'red',
-            3: (0.33,0.33,0.33),
-            4: (0.66,0.66,0.66),
-            5: (1,1,1)
-        }
-        cmap = ListedColormap([class_colors[i] for i in range(6)])
-        #cmap = ListedColormap(colors)
-        plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 5)
+        if dataset == 0:
+            colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
+            cmap = ListedColormap(colors)
+        if dataset == 1:
+            class_colors = {
+                0: (0,0,0),
+                1: (1,1,1),
+                2: 'red',
+                3: (0.33,0.33,0.33),
+                4: (0.66,0.66,0.66),
+                5: (1,1,1)
+            }
+            cmap = ListedColormap([class_colors[i] for i in range(6)])
+        plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 4)
         num_ticks = 5
-        new_y_ticks = np.linspace(0, 1256, num_ticks)  # 410 for MCORDS1, 1256 for MCORDS3
+        new_y_ticks = np.linspace(0, 410, num_ticks)  # 410 for MCORDS1, 1256 for MCORDS3
         new_y_labels = [f'{i*0.103:.2f}' for i in range(num_ticks)] # 0.103us is the timestep for MCORDS1       
         plt.yticks(new_y_ticks, new_y_labels,fontsize = fs)
         plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)
         plt.subplot(212)
-        plt.imshow(seg, cmap = cmap, interpolation="nearest", vmin = 0, vmax = 5)
+        plt.imshow(seg, cmap = cmap, interpolation="nearest", vmin = 0, vmax = 4)
         plt.yticks(new_y_ticks, new_y_labels, fontsize = fs)
         plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)

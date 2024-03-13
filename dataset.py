@@ -47,15 +47,16 @@ class RGDataset(Dataset):
         return item.float()
 
 if __name__ == '__main__':
-    ds = RGDataset(filepath = 'datasets/MCORDS1_Miguel/rg2.pt', length = 4, dim = (32,32), overlap = (0,0))
+    ds = RGDataset(length = 4, dim = (48,48), overlap = (0,0))
     T, N, H, W = ds[0].shape
     images = ds[0]
     fig, axes = plt.subplots(N, T, figsize = (13,13))
     for t in range(T):
         for n in range(N):
             image = images[t, n].cpu().numpy()
-            axes[n, t].imshow(image, cmap='gray')
+            axes[n, t].imshow(-image, cmap='gray', vmin = -1, vmax = 1.5)
             axes[n, t].axis('off')
+    plt.subplots_adjust(left=0.0, right=3.0, bottom=0.0, top=1.0, wspace=0.4, hspace=0.2)
     plt.tight_layout()
     plt.show()
     plt.savefig('grid.png')

@@ -13,7 +13,7 @@ def get_args_parser():
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
     parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
-    parser.add_argument('--model_path', default = './crw/latest2.pt')
+    parser.add_argument('--model_path', default = '/home/jordydalcorso/workspace/crw/latest.pt')
     # Data
     parser.add_argument('--patch_size', default=(32,32), type=int)
     parser.add_argument('--seq_length', default=80, type=int)
@@ -77,7 +77,7 @@ def main(args):
     result = algo.predict(pen=10)
     plt.vlines(result[0],0.5,4.0,'r')
     plt.tight_layout()
-    plt.savefig('./crw/_heatmap.png')
+    plt.savefig('/home/jordydalcorso/workspace/crw/_heatmap.png')
     plt.close()
     
     print('Heatmap done.')

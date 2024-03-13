@@ -2,3 +2,8 @@
 *.pt
 *.png
 *.pth
+*.json
+*.pkl
+*.csv
+events*
+.*

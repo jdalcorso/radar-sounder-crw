@@ -13,27 +13,27 @@ class CNN(nn.Module):
 
         # Layer 1: Initial layer with a 5x5 filter
         if pos_embed:
-            self.conv1 = nn.Conv2d(2, 8, kernel_size=5, padding=1, padding_mode='reflect')
+            self.conv1 = nn.Conv2d(2, 8, kernel_size=5, padding=1)
         else:
-            self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1, padding_mode='reflect')
+            self.conv1 = nn.Conv2d(1, 8, kernel_size=5, padding=1)
         self.relu1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=1)
         
         # Layer 2: Additional layer with an 5x5 filter
-        self.conv2 = nn.Conv2d(8, 32, kernel_size=5, padding=1, padding_mode='reflect')
+        self.conv2 = nn.Conv2d(8, 32, kernel_size=5, padding=1)
         self.relu2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=1)
         
         # Layer 3: Intermediate layers with 3x3 filters
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1, padding_mode='reflect')
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.relu3 = nn.ReLU()
         
         # Layer 4: Another layer with 3x3 filter and adjusted stride
-        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, padding=1, padding_mode='reflect')
+        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         self.relu4 = nn.ReLU()
         
         # Layer 5: Final conv with 3x3 filter
-        self.conv5 = nn.Conv2d(128, 128, kernel_size=3, padding=1, padding_mode='reflect')
+        self.conv5 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
         self.relu5 = nn.ReLU()
 
         # Layer 6: Final layer to linearize output

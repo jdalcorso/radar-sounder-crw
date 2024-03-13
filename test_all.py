@@ -18,20 +18,20 @@ def get_args_parser():
     parser = argparse.ArgumentParser('CRW Test', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
     # Data
-    parser.add_argument('--patch_size', default=(32,32), type=int)
-    parser.add_argument('--seq_length', default=40, type=int)
-    parser.add_argument('--overlap', default=(31,0), type=int) # Should not be changed
+    parser.add_argument('--patch_size', default=(48,24), type=int)
+    parser.add_argument('--seq_length', default=80, type=int)
+    parser.add_argument('--overlap', default=(46,0), type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=80, type=int) # 80-25-0.01-30 works with MiguelDS
-    parser.add_argument('-r','--radius', default=48, type=int)
+    parser.add_argument('-c','--cxt_size', default=40, type=int) # 80-25-0.01-30 works with MiguelDS
+    parser.add_argument('-r','--radius', default=60, type=int)
     parser.add_argument('-t','--temp', default=0.01, type=float)
-    parser.add_argument('-k','--knn', default=30, type=int)
+    parser.add_argument('-k','--knn', default=5, type=int)
     # Paths
-    parser.add_argument('--model_path', default = './crw/latest2.pt')
+    parser.add_argument('--model_path', default = '/home/jordydalcorso/workspace/crw/latest.pt')
     # Dev
-    parser.add_argument('--pos_embed', default = True)
+    parser.add_argument('--pos_embed', default = False)
     parser.add_argument('--remove_unc', default = True) # Remove uncertainty class from reports
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
     parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
@@ -69,7 +69,9 @@ def main(args):
     lp = LabelPropVOS_CRW(cfg)
 
     # Compute the number of total radargrams (with first sample)
-    rg_len = args.seq_length*(args.patch_size[-1]-args.overlap[-1])+args.overlap[-1]
+    rg_len = T * (W - args.overlap[-1]) + args.overlap[-1]
+    rg_h   = N * (H - args.overlap[0])  + args.overlap[0]
+
     tot_rg = seg.shape[-1]//rg_len
     print('Num of radargrams:',tot_rg,'Radargram length:', rg_len)
 
@@ -89,10 +91,10 @@ def main(args):
     for t in range(len(rg_idx_list)):
         print('Radargram',t)
         seq = dataset[rg_idx_list[t]].to('cuda')
-        seg_ref = seg[:,rg_len * t:rg_len * t + W]
+        seg_ref = seg[:rg_h,rg_len * t:rg_len * t + W]
         final_prediction, xent, change_idx = propagate(seq, seg_ref, encoder, lp, nclasses, args.pos_embed, use_last = False)
         final_prediction = up(final_prediction[None]).squeeze()
-        plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len])
+        plot(img = final_prediction.cpu(), save = '/home/jordydalcorso/workspace/crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len], dataset=args.dataset)
         seg_list.append(final_prediction)
         xent_list.append(xent)
         change_list.append(change_idx)
@@ -111,7 +113,7 @@ def main(args):
             seg_list[t][:,rg_len-pixel_offset:] = resize(corrected_prediction[None],
                                                         size = (seg.shape[0],pixel_offset),
                                                         interpolation = InterpolationMode.NEAREST).squeeze()
-            plot(img = seg_list[t].cpu(), save = './crw/output/im'+str(t)+'c.png', seg = seg[:,rg_len * t:rg_len * t + rg_len])
+            plot(img = seg_list[t].cpu(), save = '/home/jordydalcorso/workspace/crw/output/im'+str(t)+'c.png', seg = seg[:,rg_len * t:rg_len * t + rg_len], dataset=args.dataset)
 
     # Concat seg_list to match the dimension of the full ground truth segmentation
     final_pred = cat(seg_list, dim = 1).flatten()
@@ -129,7 +131,7 @@ def main(args):
             seg_ref = seg[:,rg_len * t:rg_len * t + W]
             final_prediction, _, _ = propagate(seq, seg_ref, encoder, lp, nclasses, args.pos_embed, use_last = True)
             final_prediction = up(final_prediction[None]).squeeze()
-            plot(img = final_prediction.cpu(), save = './crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len])
+            plot(img = final_prediction.cpu(), save = '/home/jordydalcorso/workspace/crw/output/im'+str(t)+'.png', seg = seg[:,rg_len * t:rg_len * t + rg_len], dataset=args.dataset)
             seg_list.append(final_prediction)
 
         pred_seg_rev = cat(seg_list, dim = 1).unfold(dimension = 1, size = rg_len, step = rg_len)

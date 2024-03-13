@@ -2,7 +2,6 @@ import torch.nn as nn
 from torch import einsum, cat, flip, eye, bmm, permute, zeros
 from torch.nn.functional import normalize, softmax, cross_entropy
 from utils import pos_embed, plot_kmeans
-from sklearn.cluster import KMeans
 
 class CRW(nn.Module):
     def __init__(self, encoder, tau, pos_embed, only_a = False):
@@ -21,7 +20,7 @@ class CRW(nn.Module):
         emb = self.encoder(seq)  # B x T x N x C  # TODO QUESTO FORSE E' SBAGLIATO, C NON SI SPOSTA AUTOMATICAMENTE IN QUELLA POSIZIONE
         emb = emb.reshape(B, T, N, -1)
         emb = normalize(emb, dim = -1) # L2 normalisation: now emb has L2norm=1 on C dimension
-        plot_kmeans(emb,T,N)
+        #plot_kmeans(emb,T,N)
         emb = permute(emb, [0, 3, 1, 2])                                # B x C x T x N
 
         # Transition from t to t+1. We do a matrix product on the C dimension (i.e. computing cosine similarities)
@@ -45,4 +44,4 @@ class CRW(nn.Module):
                 current = AA_this[:,t] #+ eye(N, device = 'cuda').unsqueeze(0).repeat([B,1,1]) * args.diag_factor
                 At = bmm(softmax(current, dim = -1), At)
             loss += cross_entropy(input = At, target = I)
-        return loss, A
+        return loss/N, A
