@@ -19,7 +19,7 @@ def get_args_parser():
     parser.add_argument('--seq_length', default=80, type=int)
     parser.add_argument('--overlap', default=(16,0), type=int)
     parser.add_argument('--tau', default = 0.1, type = int)
-    parser.add_argument('--pos_embed', default = True, type = bool)
+    parser.add_argument('--pos_embed', default = False, type = bool)
     return parser
 
 def main(args):
@@ -77,7 +77,7 @@ def main(args):
     result = algo.predict(pen=10)
     plt.vlines(result[0],0.5,4.0,'r')
     plt.tight_layout()
-    plt.savefig('/home/jordydalcorso/workspace/crw/_heatmap.png')
+    plt.savefig('/home/jordydalcorso/workspace/crw/output/_heatmap.png')
     plt.close()
     
     print('Heatmap done.')
