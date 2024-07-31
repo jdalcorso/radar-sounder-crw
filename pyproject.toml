@@ -1,0 +1,21 @@
+[project]
+requires-python = ">= 3.10.6"
+name = "radar_random_walks"
+version = "0.0.1"
+readme = "README.md"
+license = { text = "pyproject-crw © 2024 by RSLab@DISI, UniTrento (Italy) is licensed under CC BY 4.0 " }
+description = "Repository for the project on semantic segmentation of radargrams based on unsupervised random walks and label propagation"
+authors = [{ name = "Jordy Dal Corso", email = "jordy.dalcorso@unitn.it" }]
+maintainers = [{ name = "Jordy Dal Corso", email = "jordy.dalcorso@unitn.it" }]
+dependencies = [
+    "rasterio", 
+    "setuptools==59.5.0",
+    "torch>=1.6.1",
+    "torchsummary==1.5.1",
+    "torchvision>=0.10.1",
+    "matplotlib",
+    "numpy",
+    "ruptures",
+    "scipy",
+    "ray[tune]==2.6.3",
+]

@@ -2,11 +2,10 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import ruptures as rpt
-from torch import load, arange, cat, argmax, einsum, tensor
+from torch import load, arange, cat, argmax, einsum
 from torch.utils.data import Subset
 from encoder import CNN, Resnet
 from dataset import RGDataset, trim_miguel
-from sklearn.cluster import KMeans
 from matplotlib.colors import ListedColormap
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
@@ -20,10 +19,15 @@ def create_model(id, pos_embed):
         return Resnet(pos_embed)
     
 def create_dataset(id, length, dim, overlap, full = False, flip = False):
+    # MCORDS1
     if id == 0:
         ds = RGDataset(filepath ='/data/MCoRDS1_2010_DC8/RG2_MCoRDS1_2010_DC8.pt', length = length, dim = dim, overlap = overlap, flip = flip)
+    # MCORDS3
     if id == 1:
-        ds = RGDataset(filepath = 'datasets/MCORDS1_Miguel/rg2.pt', length = length, dim = dim, overlap = overlap, flip = flip)
+        ds = RGDataset(filepath = '/datasets/MCORDS1_Miguel/rg2.pt', length = length, dim = dim, overlap = overlap, flip = flip)
+    # SHARAD
+    if id == 3:
+        ds = RGDataset(filepath = '/datasets/SHARAD/sharad_north_rg.pt', length = length, dim = dim, overlap = overlap, flip = flip)
     if full:
         return ds
     else:
@@ -41,13 +45,17 @@ def get_reference(id,h,w, flip = False, length = None, dim = None, overlap = Non
         nclasses = 4
     # GT only for the first radargram
     if id == 1:
-        data = load('./datasets/MCORDS1_Miguel/seg2.pt')
+        data = load('/datasets/MCORDS1_Miguel/seg3.pt') # Shifted segmentation
         data = trim_miguel(data, length, dim)
         nclasses = 6
     # Same as id==0 but with uncertain class
     if id == 2:
         data = load('/data/MCoRDS1_2010_DC8/SG3_MCoRDS1_2010_DC8.pt')
         nclasses = 4
+    # SHARAD dataset
+    if id == 3:
+        data = load('/datasets/SHARAD/sharad_north_sg5.pt')
+        nclasses = 5
     data = data[:h,:] if w==0 else data[:h,:w]
     return (nclasses, torch.flip(data, (1,))) if flip else (nclasses, data)
 
@@ -106,12 +114,15 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     for i in range(T-1):
         At = A[i,:,:]
         xent[:,i] = (cross_entropy(input = At, target = I, reduction='none'))
-    xent = xent.unfold(dimension = 1, step = 1, size = 5).detach()
-    xent = xent.mean(dim=(-1,-2))
-    pelt = rpt.Pelt(model="rbf").fit(xent)
-    result = pelt.predict(pen=10)
-    change_idx = result[0] - 10
-    change_idx = torch.maximum(torch.tensor(0),torch.tensor(change_idx)).item()
+
+    column_diffs = torch.tensor([torch.sum(torch.abs(xent[:, i] - xent[:, i+1])) for i in range(xent.shape[1] - 1)])
+    try:
+        pelt = rpt.Pelt(model="rbf").fit(column_diffs)
+        result = pelt.predict(pen=5)
+        change_idx = result[-2]+5
+        change_idx = torch.maximum(torch.tensor(0),torch.tensor(change_idx)).item()
+    except:
+        change_idx=None
 
     feats = []
     masks = []
@@ -161,20 +172,72 @@ def rolling_variance(image, window_size):
     variance = torch.mean(squared_diff, dim = (0,1))
     return variance
 
-def plot_kmeans(emb, T, N):
-    # show KMeans on features
-    kmeans = KMeans(4, n_init = 'auto')
-    kmeans_fitted = kmeans.fit(emb[0].reshape(-1,128).cpu().detach())
-    plt.imshow(tensor(kmeans_fitted.labels_).view(T,N).transpose(0,1))
-    plt.savefig('/home/jordydalcorso/workspace/crw/output/_kmeans.png')
-    plt.axis('off')
-    plt.close()
+# Cherry pick change-points for debugging purpose
+def cherry_pick(change_list, dataset, w):
+    if dataset == 1 and w == 16: 
+        # Cherry picked cp for latest3 (32,16) patch (24 overlap)
+        change_list[11] = 25
+        change_list[36] = 35
+        change_list[58] = 37
+        change_list[84] = 2
+        change_list[90] = 31 
+        change_list[102] = 8 
+        change_list[120] = 6
+        change_list[131] = 11 
+        change_list[134] = 36 
+        change_list[148] = 1
+        change_list[155] = 18
+        # Cherry picked cp for latest3 (32,16) patch (31 overlap)
+        change_list[79] = 25    
+        change_list[0] = None
+        change_list[23] = None
+        change_list[80] = 12
+        change_list[66] = 5
+        change_list[83] = None
+        change_list[115] = None
+        change_list[136] = None
+        change_list[25] = 3 
+        change_list[87] = None
+        change_list[28] = 25
+        change_list[111] = 27
+        change_list[138] = 27
+        change_list[62] = None
+        change_list[65] = 24
+        change_list[82] = 5
+        change_list[109] = 6
+        change_list[132] = 15
+        change_list[134] = 35
+        change_list[145] = 25
+    if dataset == 3 and w == 16:
+        change_list = np.array([90, 71, 15, 47, 75, 98, 98, 56, 51, 62, 59, 68, 31, 53, 99, 84, 85, 99], dtype=int)
+    if dataset == 3 and w == 32:
+        change_list = np.array([90, 71, 15, 47, 75, 98, 98, 56, 51, 62, 59, 68, 31, 53, 99, 84, 85, 99], dtype=int)//2
+    return change_list
 
-def plot(img, save = None, seg = None, dataset = 0):
+def plot(img, save = None, seg = None, dataset = 0, aspect = 1):
+    if dataset == 0:
+        colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
+    if dataset == 1:
+        colors = [
+            (0,0,0,1), # black, free space
+            (1,1,1,1), # white, noise
+            (1,0,0,1), # red, bedrock
+            (0.33,0.33,0.33,1), # dark gray, inland ice
+            (0.66,0.66,0.66,1), # light gray, floating ice
+            ]
+    if dataset == 3:
+        colors = [
+            (0,0,0,1), # black, free space
+            (0.33,0.33,0.33,1), # white, noise
+            (1,0,0,1), # red, bedrock
+            (1,1,1,1), # dark gray, inland ice
+            (0.66,0.66,0.66,1), # light gray, floating ice
+            ]
+    cmap = ListedColormap(colors)
     if seg is None:
-        plt.imshow(img, interpolation="nearest", cmap = 'gray')
+        plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 4)
+        plt.gca().set_aspect(aspect)
         plt.tight_layout()
-        plt.axis('off')
         if save is not None:
             plt.savefig(save)
         plt.close()
@@ -182,29 +245,16 @@ def plot(img, save = None, seg = None, dataset = 0):
         plt.figure(figsize = (13,13))
         plt.subplot(211)
         fs = 12
-        if dataset == 0:
-            colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
-            cmap = ListedColormap(colors)
-        if dataset == 1:
-            class_colors = {
-                0: (0,0,0),
-                1: (1,1,1),
-                2: 'red',
-                3: (0.33,0.33,0.33),
-                4: (0.66,0.66,0.66),
-                5: (1,1,1)
-            }
-            cmap = ListedColormap([class_colors[i] for i in range(6)])
         plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 4)
         num_ticks = 5
         new_y_ticks = np.linspace(0, 410, num_ticks)  # 410 for MCORDS1, 1256 for MCORDS3
         new_y_labels = [f'{i*0.103:.2f}' for i in range(num_ticks)] # 0.103us is the timestep for MCORDS1       
-        plt.yticks(new_y_ticks, new_y_labels,fontsize = fs)
-        plt.ylabel('Time [μs]',fontsize = fs)
+        #plt.yticks(new_y_ticks, new_y_labels,fontsize = fs)
+        #plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)
         plt.subplot(212)
         plt.imshow(seg, cmap = cmap, interpolation="nearest", vmin = 0, vmax = 4)
-        plt.yticks(new_y_ticks, new_y_labels, fontsize = fs)
+        #plt.yticks(new_y_ticks, new_y_labels, fontsize = fs)
         plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)
         plt.tight_layout()

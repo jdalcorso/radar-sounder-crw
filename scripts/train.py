@@ -1,4 +1,4 @@
-from torch import manual_seed, tensor, save, cat
+from torch import manual_seed, tensor, save
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 from torch.cuda import device_count
@@ -19,19 +19,21 @@ def get_args_parser():
     # Meta
     parser.add_argument('--tune', default = False, type=bool, help='True=Use Raytune, False=Train 1 run with default')
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 0, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 3, type=int, help='0=MCORDS1,1=Miguel')
     # Data
-    parser.add_argument('--patch_size', default=(48,16), type=int)
-    parser.add_argument('--seq_length', default=8, type=int)
-    parser.add_argument('--overlap', default=(32,0), nargs = '+', type=int)
+    parser.add_argument('--patch_size', default=(32,32), type=int)
+    parser.add_argument('--seq_length', default=20, type=int)
+    parser.add_argument('--overlap', default=(24,0), nargs = '+', type=int)
     # Train
-    parser.add_argument('--batch_size', default = 32, type=int)
-    parser.add_argument('--epochs', default = 10, type = int)
+    parser.add_argument('--batch_size', default = 16, type=int)
+    parser.add_argument('--epochs', default = 1, type = int)
     parser.add_argument('--lr', default = 1E-3, type = float)
     parser.add_argument('--tau', default = 0.01, type = float)
     # Dev
     parser.add_argument('--pos_embed', default = False, type = bool)
     parser.add_argument('--dataset_full', default = True)
+    parser.add_argument('--output_folder', default = '/home/jordydalcorso/workspace/crw/resources/')
+    parser.add_argument('--output_name', default = 'sharad16')
     return parser
 
 def main(args):
@@ -85,9 +87,9 @@ def main(args):
         )
 
     plt.plot(loss_tot)
-    plt.savefig('/home/jordydalcorso/workspace/crw/output/_loss.png')
+    plt.savefig(args.output_folder+'output/_loss.png')
     plt.close()
-    save(encoder.state_dict(), '/home/jordydalcorso/workspace/crw/latest.pt')
+    save(encoder.state_dict(), args.output_folder+'models/'+args.output_name+'.pt')
     print('Finished training.')
 
 def train_crw(config):
@@ -108,13 +110,13 @@ if __name__ == '__main__':
                 "model":1,
                 "dataset":0,
                 "seq_length":8,
-                "epochs":1,
-                "batch_size": tune.choice([16, 32]),
+                "epochs":2,
+                "batch_size": tune.choice([16, 8]),
                 "lr": tune.choice([1e-2, 1e-3, 1e-4, 1e-5]),
                 "tau": tune.choice([1e-1, 1e-2, 1e-3, 1e-4]),
-                "patch_size": tune.choice([(16,16),(32,32),(24,24),(48,48),(24,32),(16,24),(32,48)]),
-                "overlap": tune.choice([(0,0), (8,8), (12,12), (4,4), (4,12)]),
-                "pos_embed":False,
+                "patch_size": tune.choice([(32,32)]),
+                "overlap": tune.choice([(24,0),(16,0)]),
+                "pos_embed": tune.choice([False, True]),
                 "dataset_full":True
             }
         
@@ -131,7 +133,7 @@ if __name__ == '__main__':
             metric = 'loss',
             resources_per_trial={"gpu": 1},
             scheduler=scheduler,
-            local_dir ='/home/jordydalcorso/workspace/crw/output/ray_results',
+            local_dir = args.output_folder+'output/ray_results',
             num_samples=50,
             checkpoint_score_attr=None
         )

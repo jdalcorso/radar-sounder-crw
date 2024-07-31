@@ -1,11 +1,10 @@
 import os
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18
-from typing import Any, Callable, List, Optional, Type, Union
+from typing import Callable, List, Optional, Type, Union
 from torch import Tensor
 
-os.environ['TORCH_HOME'] = 'crw/imported'    
+os.environ['TORCH_HOME'] = 'imported'    
     
 class CNN(nn.Module):
     def __init__(self, pos_embed):
