@@ -18,7 +18,7 @@ for s in "${S[@]}"; do
         overlap2=$(echo "$o" | cut -d' ' -f2)
 
         # Run Docker command with the current parameters
-        docker exec -t crw_jordydalcorso python workspace/crw/scripts/train.py --seq_length "$s" --lr "$l" --tau "$t" --overlap "$overlap1" "$overlap2"
+        docker exec -t crw_jordydalcorso python ../train.py --seq_length "$s" --lr "$l" --tau "$t" --overlap "$overlap1" "$overlap2"
         
       done
     done

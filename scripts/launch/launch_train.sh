@@ -1,0 +1,1 @@
+docker exec -t crw_jordydalcorso python ../train.py

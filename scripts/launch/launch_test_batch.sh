@@ -11,7 +11,7 @@ for r in "${R[@]}"; do
   for t in "${T[@]}"; do
     for k in "${K[@]}"; do
         # Run Docker command with the current parameters
-        docker exec -t crw_jordydalcorso python workspace/crw/scripts/test/test_all.py -r "$r" -t "$t" -k "$k"        
+        docker exec -t crw_jordydalcorso python ../test/test_all.py -r "$r" -t "$t" -k "$k"        
     done
   done
 done

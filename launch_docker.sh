@@ -1,4 +1,6 @@
 #!/bin/bash
+# Remove/add/modify volumes with -v
+
 docker build --build-arg="USERID=$(id -u)" \
     --build-arg="GROUPID=$(id -g)" \
     --build-arg="REPO_DIR=$(pwd | sed "s/$USER/jordydalcorso/")" \
