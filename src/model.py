@@ -1,5 +1,5 @@
 import torch.nn as nn
-from torch import einsum, cat, flip, eye, bmm, permute, zeros
+from torch import einsum, cat, flip, eye, bmm, permute, zeros, transpose
 from torch.nn.functional import normalize, softmax, cross_entropy
 from utils import pos_embed
 
@@ -42,5 +42,5 @@ class CRW(nn.Module):
             for t in range(1,2*k):
                 current = AA_this[:,t]
                 At = bmm(softmax(current, dim = -1), At)
-            loss += cross_entropy(input = At, target = I)
+            loss += cross_entropy(input = transpose(At,1,2), target = I)
         return loss/N, A

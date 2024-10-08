@@ -2,11 +2,10 @@
 import argparse
 import time
 import torch
-import numpy as np
 from torch.cuda import device_count, is_available
 from torch.nn import DataParallel
-from torch import load, manual_seed, cat, logical_and, flip, device, sum
-from utils import create_dataset, create_model, get_reference, propagate, plot, cherry_pick
+from torch import load, manual_seed, cat, logical_and, flip, device
+from utils import create_dataset, create_model, get_reference, propagate, plot
 from imported.labelprop import LabelPropVOS_CRW
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
@@ -19,18 +18,18 @@ def get_args_parser():
     parser = argparse.ArgumentParser('CRW Test', add_help=False)
     # Meta
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 3, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 1, type=int, help='0=MCORDS1,1=Miguel')
     # Data
-    parser.add_argument('--patch_size', default=(32,32), type=int)
-    parser.add_argument('--seq_length', default=50, type=int)
-    parser.add_argument('--overlap', default=(24,0), nargs = '+', type=int) # Should not be changed
+    parser.add_argument('--patch_size', default=(16,16), type=int)
+    parser.add_argument('--seq_length', default=100, type=int)
+    parser.add_argument('--overlap', default=(8,0), nargs = '+', type=int) # Should not be changed
     # Label propagation cfg
-    parser.add_argument('-c','--cxt_size', default=100, type=int) # 80-25-0.01-30 works with MiguelDS
-    parser.add_argument('-r','--radius', default=13, type=int)
+    parser.add_argument('-c','--cxt_size', default=100, type=int)
+    parser.add_argument('-r','--radius', default=10, type=int)
     parser.add_argument('-t','--temp', default=0.1, type=float)
-    parser.add_argument('-k','--knn', default=30, type=int)
+    parser.add_argument('-k','--knn', default=20, type=int)
     # Paths
-    parser.add_argument('--model_path', default = '/home/jordydalcorso/workspace/crw/resources/models/sharad32.pt')
+    parser.add_argument('--model_path', default = '/home/jordydalcorso/workspace/crw/resources/models/sharad16_3.pt')
     parser.add_argument('--output_folder', default = '/home/jordydalcorso/workspace/crw/resources/output/')
     # Dev
     parser.add_argument('--pos_embed', default = False)
@@ -38,11 +37,7 @@ def get_args_parser():
     parser.add_argument('--flip', default = False) # Flip the full radargram and test on the flipped version
     parser.add_argument('--use_last', default = False) # Use last sample as reference for each rg
     parser.add_argument('--dataset_full',default = True)
-    parser.add_argument('--correction', default = True) # Does automatic cpoint detection and correction (skipped if cherry=True)
-    # Debug
-    parser.add_argument('--boundary_correction', default = True) # Relational features (SHARAD only)
-    parser.add_argument('--clamp', default = 55) # Whether to set a limit to the number of bedrock pixels per rangeline
-    parser.add_argument('--cherry', default = True) # Whether to cherry pick (user-provide) change points
+    parser.add_argument('--correction', default = False) # Does automatic cpoint detection and correction
     return parser
 
 def main(args):
@@ -104,9 +99,6 @@ def main(args):
         xent_list.append(xent)
         change_list.append(change_idx)
 
-    if args.cherry:
-        change_list = cherry_pick(change_list, args.dataset, args.patch_size[1])
-
     # Correction step
     if args.correction:
         print('\nCorrection step')
@@ -131,27 +123,6 @@ def main(args):
 
     # Concat seg_list to match the dimension of the full ground truth segmentation
     final_pred = cat(seg_list, dim = 1)
-
-    # Correct boundaries on the basis of relational features
-    if args.boundary_correction and args.dataset == 3:
-        for i in range(final_pred.shape[1]):
-            try:
-                first_return_index = (final_pred[:,i] == 1).nonzero(as_tuple=True)[0][0]
-                final_pred[:first_return_index,i] = 0
-            except:
-                pass
-            try:    
-                last_return_index = (final_pred[:,i] == 2).nonzero(as_tuple=True)[0][-1]
-                final_pred[last_return_index:,i] = 3
-            except:
-                pass
-            try:
-                last_strong_index = (final_pred[:,i] == 1).nonzero(as_tuple=True)[0][-1]
-                first_bedrock_index = (final_pred[:,i] == 2).nonzero(as_tuple=True)[0][0]
-                final_pred[last_strong_index:first_bedrock_index,i] = 4
-            except:
-                pass
-        print('\nCorrected boundaries!\n')
 
     # Save the map and flatten
     torch.save(final_pred.to(torch.int8), args.output_folder+'predicted_map.pt')
@@ -186,17 +157,6 @@ def main(args):
             mask = pred_seg_rev.flatten() == 2
             mask[:len(mask)//2] = 0
         final_pred[mask] = 2
-    
-    # Clamp bedrock
-    if args.clamp > 0 and args.dataset == 1:
-        final_pred = final_pred.view(1536, 103680).cpu()
-        clamp = args.clamp # clamp
-        for i in range(final_pred.shape[1]):
-            if i%1000==0:
-                print('Column',i)
-            idx = np.where(final_pred[:,i] == 2)[0]
-            final_pred[:,i][idx[clamp:]] = 1
-        final_pred = final_pred.flatten()
         
     # Remove uncertain class (CRESIS radargrams only)
     if args.remove_unc: 

@@ -1,8 +1,7 @@
-# Test and plot qualitative results of radargrams of MCORDS1 dataset
+# Test and plot qualitative results of radargrams of MCORDS3 dataset
 
 import argparse
 import time
-import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from torch.cuda import device_count, is_available
@@ -29,10 +28,9 @@ def get_args_parser():
     # Dev
     parser.add_argument('--correction', default = True)
     parser.add_argument('--use_last', default = True) # Use last sample as reference for each rg
-    parser.add_argument('--clamp', default = 50)
     # Folder
-    parser.add_argument('--input_folder', default = '/home/jordydalcorso/workspace/crw/src/input/')
-    parser.add_argument('--output_folder', default = '/home/jordydalcorso/workspace/crw/src/output/')
+    parser.add_argument('--input_folder', default = '/home/jordydalcorso/workspace/crw/resources/input/')
+    parser.add_argument('--output_folder', default = '/home/jordydalcorso/workspace/crw/resources/output/')
     return parser
 
 
@@ -46,7 +44,7 @@ def main(args):
     num_devices = device_count()
     if num_devices >= 2:
         encoder = DataParallel(encoder)
-    encoder.load_state_dict(load('/home/jordydalcorso/workspace/crw/src/models/latestx.pt'))
+    encoder.load_state_dict(load('/home/jordydalcorso/workspace/crw/resources/models/latestx.pt'))
 
     # Dataset and reference
     nclasses = 5
@@ -160,13 +158,6 @@ def main(args):
             mask2 = logical_and(seg_list_r[t] == 3, torch.all(seg_list[t] != 4, axis=0).unsqueeze(0).repeat([rg_h,1]))
             seg_list_final[t][mask2] = 3
             plot(img = seg_list_final[t].cpu(), save = args.output_folder+'jim'+str(t)+'x.png', dataset=1)
-
-    if args.clamp > 0:
-        for t in range(3):
-            clamp = args.clamp # clamp
-            for i in range(seg_list_final[t].shape[1]):
-                idx = np.where(seg_list_final[t].cpu()[:,i] == 2)[0]
-                seg_list_final[t][:,i][idx[clamp:]] = 1
 
     torch.save(seg_list_final, args.output_folder+'mc3_resy.pt')
     torch.save(xent_list, args.output_folder+'mc3_xenty.pt')

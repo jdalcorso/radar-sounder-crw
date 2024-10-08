@@ -9,16 +9,24 @@ from dataset import RGDataset, trim_miguel
 from matplotlib.colors import ListedColormap
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from torch.nn.functional import softmax, normalize, cross_entropy
+from torch.nn.functional import normalize, cross_entropy
 
 
 def create_model(id, pos_embed):
+    '''
+    Chooses between custom CNN and Resnet
+    '''
     if id == 0:
         return CNN(pos_embed)
     if id == 1:
         return Resnet(pos_embed)
-    
+
+
 def create_dataset(id, length, dim, overlap, full = False, flip = False):
+    '''
+    Chooses the dataset between the ones used in the paper. Modify this snippet to load a custom dataset.
+    A new dataset would be a new .pt file of arbitrary dimension HxW (i.e. 1 channel radargram)
+    '''
     # MCORDS1
     if id == 0:
         ds = RGDataset(filepath ='/data/MCoRDS1_2010_DC8/RG2_MCoRDS1_2010_DC8.pt', length = length, dim = dim, overlap = overlap, flip = flip)
@@ -36,8 +44,13 @@ def create_dataset(id, length, dim, overlap, full = False, flip = False):
         return Subset(ds, non_overlapping_idx)
 
 
-
 def get_reference(id,h,w, flip = False, length = None, dim = None, overlap = None):
+    '''
+    Gets the reference of the corresponding dataset. Used when performing inference.
+    Modify this to do inference on a personalized dataset.
+    The segmentation map should match the size of the dataset HxW and contain class indices
+    as integers starting from 0.
+    '''
     # Returns number of classes and reference initial segmentation
     # w = 0 -> return the whole dataset 
     if id == 0:
@@ -61,6 +74,14 @@ def get_reference(id,h,w, flip = False, length = None, dim = None, overlap = Non
 
 
 def pos_embed(seq):
+    '''
+    Adds a positional embedding channel to the input radargram.
+    The usage of this function is triggered by an argument in the code and
+    this also changes the input channels of the model from 1 to 2.
+    Keep in mind that if you train a model with positional embedding you
+    should also set pos_embed=True during inference/test to load the correct
+    weights.
+    '''
     # seq has size BT x 1 x H x W
     BT, _, H, W = seq.size()
     pe = arange(0, H).unsqueeze(-1)/H-0.5  # H x 1
@@ -68,25 +89,11 @@ def pos_embed(seq):
     pe = pe.unsqueeze(0).unsqueeze(0).repeat([BT,1,1,1]) # BT x 1 x H x W
     return cat([pe.to('cuda'),seq], dim = 1)
 
-def show_A(A):
-    # A with dimension B T-1 N N
-    B, T, _, _ = A.shape    
-    _, axes = plt.subplots(B, T, figsize=(T * 3, B * 3))
-    axes = axes.flatten()
-    
-    for i in range(B * T):
-        image = A[i // T, i % T].cpu().detach()  # Convert to NumPy array for Matplotlib
-        axes[i].imshow(softmax(image,dim = 1), cmap='gray')  # Assuming grayscale images, adjust cmap if using color images
-        axes[i].axis('off')  # Turn off axis labels
-    
-    plt.tight_layout()
-    plt.show()
-    plt.savefig('transitions.png')
-    plt.close()
 
 @torch.no_grad()
 def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
     '''
+    KNN Label propagation pipeline as per many Video Object Segmentation works.
     seq:        sequence of shape T, N, H, W
     t:          number of cycle within the seg (i.e. number of radargram)
     seg:        segmentation of shape H, W (H,W different from the above)
@@ -109,11 +116,11 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
 
     # Compute horizontality metric
     A = einsum('tnc,tmc->tnm', emb[:,:,:-1], emb[:,:,1:])/0.1
-    I = ndiag_matrix(N, 3).cuda()
+    I = ndiag_matrix(N,1).cuda() 
     xent = torch.zeros(N,T-1, requires_grad = False)
     for i in range(T-1):
         At = A[i,:,:]
-        xent[:,i] = (cross_entropy(input = At, target = I, reduction='none'))
+        xent[:,i] = (cross_entropy(input = torch.transpose(At,0,1), target = I, reduction='none'))
 
     column_diffs = torch.tensor([torch.sum(torch.abs(xent[:, i] - xent[:, i+1])) for i in range(xent.shape[1] - 1)])
     try:
@@ -153,7 +160,11 @@ def propagate(seq, seg_ref, model, lp, nclasses, do_pos_embed, use_last):
         final_prediction[:,n] = argmax(mask, dim = 1).squeeze()
     return final_prediction, xent, change_idx
 
+
 def ndiag_matrix(size, n = 1):
+    '''
+    Creates a k-diagonal matrix. May be useful to mask transitions.
+    '''
     # Create a zero tensor with the desired size (n <= 2 is id, n = 3 is tri, n = 4 is penta)
     matrix = torch.zeros(size, size)
     matrix.diagonal(offset=0).fill_(1)
@@ -163,58 +174,11 @@ def ndiag_matrix(size, n = 1):
     matrix = matrix/matrix.sum(dim=1).unsqueeze(0).transpose(0,1)
     return matrix
 
-def rolling_variance(image, window_size):
-    #unfolded = torch.nn.functional.unfold(image.unsqueeze(0), kernel_size=(1, window_size), stride=(1, 1))
-    unfolded = image.unfold(dimension = -1, size = window_size, step = 1)
-    unfolded = torch.permute(unfolded, [0, 2, 1])
-    mean = torch.mean(unfolded, dim = (0,1), keepdim=True)
-    squared_diff = (unfolded - mean)**2
-    variance = torch.mean(squared_diff, dim = (0,1))
-    return variance
-
-# Cherry pick change-points for debugging purpose
-def cherry_pick(change_list, dataset, w):
-    if dataset == 1 and w == 16: 
-        # Cherry picked cp for latest3 (32,16) patch (24 overlap)
-        change_list[11] = 25
-        change_list[36] = 35
-        change_list[58] = 37
-        change_list[84] = 2
-        change_list[90] = 31 
-        change_list[102] = 8 
-        change_list[120] = 6
-        change_list[131] = 11 
-        change_list[134] = 36 
-        change_list[148] = 1
-        change_list[155] = 18
-        # Cherry picked cp for latest3 (32,16) patch (31 overlap)
-        change_list[79] = 25    
-        change_list[0] = None
-        change_list[23] = None
-        change_list[80] = 12
-        change_list[66] = 5
-        change_list[83] = None
-        change_list[115] = None
-        change_list[136] = None
-        change_list[25] = 3 
-        change_list[87] = None
-        change_list[28] = 25
-        change_list[111] = 27
-        change_list[138] = 27
-        change_list[62] = None
-        change_list[65] = 24
-        change_list[82] = 5
-        change_list[109] = 6
-        change_list[132] = 15
-        change_list[134] = 35
-        change_list[145] = 25
-    if dataset == 3 and w == 16:
-        change_list = np.array([90, 71, 15, 47, 75, 98, 98, 56, 51, 62, 59, 68, 31, 53, 99, 84, 85, 99], dtype=int)
-    if dataset == 3 and w == 32:
-        change_list = np.array([90, 71, 15, 47, 75, 98, 98, 56, 51, 62, 59, 68, 31, 53, 99, 84, 85, 99], dtype=int)//2
-    return change_list
 
 def plot(img, save = None, seg = None, dataset = 0, aspect = 1):
+    '''
+    Plots with colormap according to the paper Experiments section.
+    '''
     if dataset == 0:
         colors = [(0,0,0), (0.33,0.33,0.33), (1,0,0), (1,1,1)] # for MCORDS1
     if dataset == 1:
@@ -246,15 +210,9 @@ def plot(img, save = None, seg = None, dataset = 0, aspect = 1):
         plt.subplot(211)
         fs = 12
         plt.imshow(img, interpolation="nearest", cmap = cmap, vmin = 0, vmax = 4)
-        num_ticks = 5
-        new_y_ticks = np.linspace(0, 410, num_ticks)  # 410 for MCORDS1, 1256 for MCORDS3
-        new_y_labels = [f'{i*0.103:.2f}' for i in range(num_ticks)] # 0.103us is the timestep for MCORDS1       
-        #plt.yticks(new_y_ticks, new_y_labels,fontsize = fs)
-        #plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)
         plt.subplot(212)
         plt.imshow(seg, cmap = cmap, interpolation="nearest", vmin = 0, vmax = 4)
-        #plt.yticks(new_y_ticks, new_y_labels, fontsize = fs)
         plt.ylabel('Time [μs]',fontsize = fs)
         plt.xlabel('Trace',fontsize = fs)
         plt.tight_layout()

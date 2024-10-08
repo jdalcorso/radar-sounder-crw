@@ -19,21 +19,21 @@ def get_args_parser():
     # Meta
     parser.add_argument('--tune', default = False, type=bool, help='True=Use Raytune, False=Train 1 run with default')
     parser.add_argument('--model', default = 1, type=int, help='0=CNN,1=Resnet18')
-    parser.add_argument('--dataset', default = 3, type=int, help='0=MCORDS1,1=Miguel')
+    parser.add_argument('--dataset', default = 3, type=int, help='0=MCORDS1,1=Miguel,3=SHARAD')
     # Data
-    parser.add_argument('--patch_size', default=(32,32), type=int)
+    parser.add_argument('--patch_size', default=(16,16), type=int)
     parser.add_argument('--seq_length', default=20, type=int)
-    parser.add_argument('--overlap', default=(24,0), nargs = '+', type=int)
+    parser.add_argument('--overlap', default=(8,0), nargs = '+', type=int)
     # Train
-    parser.add_argument('--batch_size', default = 16, type=int)
-    parser.add_argument('--epochs', default = 1, type = int)
+    parser.add_argument('--batch_size', default = 8, type=int)
+    parser.add_argument('--epochs', default = 2, type = int)
     parser.add_argument('--lr', default = 1E-3, type = float)
     parser.add_argument('--tau', default = 0.01, type = float)
     # Dev
     parser.add_argument('--pos_embed', default = False, type = bool)
     parser.add_argument('--dataset_full', default = True)
     parser.add_argument('--output_folder', default = '/home/jordydalcorso/workspace/crw/resources/')
-    parser.add_argument('--output_name', default = 'sharad16')
+    parser.add_argument('--output_name', default = 'sharad16_3')
     return parser
 
 def main(args):
