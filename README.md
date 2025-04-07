@@ -18,16 +18,16 @@ For comments, clarifications and issues, please write to [jordy.dalcorso@unitn.i
 
 For citations, use the following: 
 ```
-@INPROCEEDINGS{10641860,
-  author={Corso, Jordy Dal and Bruzzone, Lorenzo},
-  booktitle={IGARSS 2024 - 2024 IEEE International Geoscience and Remote Sensing Symposium}, 
-  title={Radargrams as Sequences: A Method for The Semantic Segmentation of Radar Sounder Data}, 
+@ARTICLE{10677400,
+  author={Dal Corso, Jordy and Bruzzone, Lorenzo},
+  journal={IEEE Transactions on Geoscience and Remote Sensing}, 
+  title={An Approach to Semantic Segmentation of Radar Sounder Data Based on Unsupervised Random Walks and User-Guided Label Propagation}, 
   year={2024},
-  volume={},
+  volume={62},
   number={},
-  pages={8179-8183},
-  keywords={Representation learning;Radar remote sensing;Visualization;Semantic segmentation;Semantics;Object segmentation;Manuals;Semantic segmentation;Radar sounder;Sequence;Label propagation;MCoRDS},
-  doi={10.1109/IGARSS53475.2024.10641860}}
+  pages={1-19},
+  keywords={Radar;Semantic segmentation;Instruments;Feature extraction;Training;Measurement;Deep learning;Label propagation;multichannel coherent radar depth sounder (MCoRDS);radar sounder (RS);random walks;shallow radar (SHARAD);unsupervised learning},
+  doi={10.1109/TGRS.2024.3458188}}
 ```
 
 For an earlier work addressing horizontal correlation within radargrams see also [Radargrams as Sequences: A Method for The Semantic Segmentation of Radar Sounder Data](https://doi.org/10.1109/IGARSS53475.2024.10641860).
